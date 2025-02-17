@@ -51,7 +51,7 @@ docker-run:
 # Push to Docker Hub
 docker-push:
 	@echo "Pushing image to Docker Hub..."
-	@docker push firas/docker_repo_name:latest
+	@docker push firasrid/firas-ridene-4data-mlops:latest
 
 
 
