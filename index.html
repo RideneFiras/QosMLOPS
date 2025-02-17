@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QoS Prediction</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function (e) {
+                const csvData = e.target.result;
+                const jsonData = csvToJson(csvData);
+                
+                if (jsonData.length === 0) {
+                    alert("Invalid CSV file or format.");
+                    return;
+                }
+
+                const response = await sendToFastAPI(jsonData[0]);  // Send the first row for prediction
+                console.log("Received response:", response);
+
+                document.getElementById("result").innerText = `📡 Prediction: ${response.prediction_mbps} Mbit/s`;
+            };
+
+            reader.readAsText(file);
+        }
+
+        function csvToJson(csv) {
+            const lines = csv.split("\n").map(line => line.trim()).filter(line => line.length > 0);
+            const headers = lines[0].split(",");
+            const jsonData = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(",");
+                if (values.length !== headers.length) continue; // Skip invalid rows
+
+                let obj = {};
+                for (let j = 0; j < headers.length; j++) {
+                    obj[headers[j].trim()] = isNaN(values[j]) ? values[j].trim() : parseFloat(values[j]);
+                }
+                jsonData.push(obj);
+            }
+            return jsonData;
+        }
+
+        async function sendToFastAPI(data) {
+            try {
+                const response = await fetch("http://127.0.0.1:8000/predict", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.statusText}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Failed to get prediction. Check console for details.");
+                return { prediction_mbps: "Error" };
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white shadow-lg rounded-lg p-6 max-w-md text-center">
+        <h2 class="text-2xl font-semibold text-gray-800">📡 QoS Prediction</h2>
+        <p class="text-gray-500 mt-2">Upload a CSV file to predict network quality.</p>
+
+        <label class="block mt-4">
+            <span class="sr-only">Choose a file</span>
+            <input type="file" id="csvFile" accept=".csv" onchange="handleFileUpload(event)" 
+                class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-white file:bg-blue-500 hover:file:bg-blue-600 cursor-pointer"/>
+        </label>
+
+        <p id="result" class="mt-4 text-lg font-medium text-blue-600">Awaiting input...</p>
+    </div>
+</body>
+</html>

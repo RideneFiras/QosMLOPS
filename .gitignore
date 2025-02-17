@@ -1,0 +1,23 @@
+# Ignore Python cache and Jupyter artifacts
+__pycache__/
+.ipynb_checkpoints/
+
+# Ignore Virtual Environment (your `qos/` folder)
+qos/
+
+# Ignore MLflow artifacts & database (if storing locally)
+mlartifacts/
+mlflow.db
+
+# Ignore Large or Temporary Files
+*.pkl
+*.csv
+BenchmarkSubmission.csv  # If you regenerate it frequently
+SampleSubmission.csv
+processed_data.pkl
+
+# Ignore Specific Unnecessary Files
+csv.py
+shap_analysis.ipynb
+json.txt
+QoS_Prediction_StarterNotebook.ipynb
