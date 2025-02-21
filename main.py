@@ -2,7 +2,11 @@ import argparse
 import model_pipeline
 import mlflow
 import mlflow.sklearn
-mlflow.set_tracking_uri("http://0.0.0.0:5000")
+import os
+
+
+mlflow_uri = os.getenv("http://localhost:9200", "http://0.0.0.0:5000")  # Default: local MLflow UI
+mlflow.set_tracking_uri(mlflow_uri)
 
 def main():
     """Main script to execute different parts of the ML pipeline."""

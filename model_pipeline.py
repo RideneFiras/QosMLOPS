@@ -2,11 +2,31 @@ import pandas as pd
 import joblib
 import mlflow
 import mlflow.sklearn
-from sklearn.compose import make_column_transformer
+import logging
+import json
+import requests
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.model_selection import train_test_split
+
+# Configure Elasticsearch logging
+ELASTICSEARCH_URL = "http://localhost:9200"  # Change to "http://elasticsearch:9200" when containerized
+INDEX_NAME = "mlflow-logs"  # Elasticsearch index name
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def send_to_elasticsearch(data):
+    """Send log data to Elasticsearch."""
+    try:
+        response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_doc", 
+                                 json=data, 
+                                 headers={"Content-Type": "application/json"})
+        if response.status_code not in [200, 201]:
+            logger.error(f"Failed to send log to Elasticsearch: {response.text}")
+    except Exception as e:
+        logger.error(f"Error connecting to Elasticsearch: {e}")
 
 # Prepare Data Function
 def prepare_data():
@@ -35,7 +55,7 @@ def prepare_data():
     train_inputs.fillna(0, inplace=True)
     test_inputs.fillna(0, inplace=True)
 
-    # Split training and validation tests
+    # Split training and validation sets
     X_train, X_test, y_train, y_test = train_test_split(train_inputs, train_targets, test_size=0.2, random_state=0)
 
     # Save processed data
@@ -44,7 +64,7 @@ def prepare_data():
 
 # Train Model Function
 def train_model():
-    """Loads processed data, trains the model, and logs it to MLflow."""
+    """Loads processed data, trains the model, and logs it to MLflow & Elasticsearch."""
     print("Loading processed data...")
     X_train, X_test, y_train, y_test, _ = joblib.load("processed_data.pkl")
 
@@ -61,10 +81,19 @@ def train_model():
         joblib.dump(rf, "best_rf_model.pkl")
         print("Model training complete. Saved as best_rf_model.pkl.")
 
-        # Log the model as an artifact in MLflow
+        # Log model to MLflow
         mlflow.sklearn.log_model(rf, "random_forest_model")
 
-    print("Model logged to MLflow.")
+        # Log training info to Elasticsearch
+        log_data = {
+            "event": "training_completed",
+            "n_estimators": rf.n_estimators,
+            "max_depth": rf.max_depth,
+            "status": "success"
+        }
+        send_to_elasticsearch(log_data)
+
+    print("Model logged to MLflow & Elasticsearch.")
 
 # Evaluate Model Function
 def evaluate_model():
@@ -81,6 +110,15 @@ def evaluate_model():
     # Log RMSE to MLflow
     with mlflow.start_run():
         mlflow.log_metric("RMSE", rmse)
+
+    # Send RMSE to Elasticsearch
+    log_data = {
+        "event": "evaluation_completed",
+        "rmse_mbit_s": rmse / 1e6
+    }
+    send_to_elasticsearch(log_data)
+
+    print("Evaluation metrics logged to MLflow & Elasticsearch.")
 
 # Save Predictions Function
 def save_predictions():
