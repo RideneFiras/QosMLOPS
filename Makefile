@@ -31,7 +31,7 @@ notebook:
 
 fastapi:
 	@echo "launching fastapi and webpage"
-	@open index.html && uvicorn app:app --reload
+	@open http://127.0.0.1:8000/ && uvicorn app:app --reload
 
 mlflow:
 	@echo "Launching MLflow"

@@ -1,10 +1,11 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -12,6 +13,7 @@ app = FastAPI()
 # Load the trained model
 model = joblib.load("best_rf_model.pkl")
 
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -19,6 +21,14 @@ app.add_middleware(
     allow_methods=["*"],   
     allow_headers=["*"],  
 )
+
+# Mount the static directory to serve HTML, CSS, JS
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Route to serve index.html
+@app.get("/")
+async def serve_frontend():
+    return FileResponse("static/index.html")
 
 # Load expected feature order (from training data)
 expected_features = joblib.load("processed_data.pkl")[0].columns.tolist()
@@ -89,8 +99,3 @@ async def predict(data: InputData):
 
     # Return the prediction result
     return {"prediction_mbps": prediction_mbps}
-
-
-
-# To run FastAPI:
-# uvicorn app:app --reload
