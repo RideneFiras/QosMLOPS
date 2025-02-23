@@ -1,6 +1,9 @@
 # Use an official Python image
 FROM python:3.10-slim
 
+# Install make (needed for running 'make all')
+RUN apt-get update && apt-get install -y make
+
 # Set the working directory inside the container
 WORKDIR /app
 
@@ -11,11 +14,8 @@ COPY . .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt 
 
-# Run full pipeline (data processing + training) before starting FastAPI
-RUN make all
-
 # Expose FastAPI port
 EXPOSE 8000
 
-# Start FastAPI after preparing everything
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run the pipeline and start FastAPI
+CMD make all && uvicorn app:app --host 0.0.0.0 --port 8000 --reload
