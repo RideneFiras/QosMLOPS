@@ -11,8 +11,11 @@ COPY . .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt 
 
+# Run full pipeline (data processing + training) before starting FastAPI
+RUN make all
+
 # Expose FastAPI port
 EXPOSE 8000
 
-# Run FastAPI application
+# Start FastAPI after preparing everything
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
