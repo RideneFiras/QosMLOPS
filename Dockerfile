@@ -17,6 +17,7 @@ RUN pip install --upgrade pip && \
 # Expose FastAPI port
 EXPOSE 8000
 
-# Check if model exists, if not, train it
-CMD test -f best_rf_model.pkl || python -c "from model_pipeline import train_model; train_model()" && \
+# Run data preparation before training
+CMD python -c "from model_pipeline import prepare_data; prepare_data()" && \
+    python -c "from model_pipeline import train_model; train_model()" && \
     uvicorn app:app --host 0.0.0.0 --port 8000 --reload
