@@ -2,7 +2,7 @@
 FROM python:3.10-slim
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y make git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -14,9 +14,9 @@ COPY . .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt 
 
-# Expose FastAPI and MLflow ports
-EXPOSE 8000 5000
+# Expose FastAPI port
+EXPOSE 8000
 
-# Start MLflow tracking server and run FastAPI
-CMD mlflow server --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5000 & \
-    make all && uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+# Check if model exists, if not, train it
+CMD test -f best_rf_model.pkl || python -c "from model_pipeline import train_model; train_model()" && \
+    uvicorn app:app --host 0.0.0.0 --port 8000 --reload
