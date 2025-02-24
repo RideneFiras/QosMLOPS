@@ -1,8 +1,8 @@
 # Use an official Python image
 FROM python:3.10-slim
 
-# Install make (needed for running 'make all')
-RUN apt-get update && apt-get install -y make
+# Install system dependencies
+RUN apt-get update && apt-get install -y make git && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -14,8 +14,9 @@ COPY . .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt 
 
-# Expose FastAPI port
-EXPOSE 8000
+# Expose FastAPI and MLflow ports
+EXPOSE 8000 5000
 
-# Run the pipeline and start FastAPI
-CMD make all && uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+# Start MLflow tracking server and run FastAPI
+CMD mlflow server --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5000 & \
+    make all && uvicorn app:app --host 0.0.0.0 --port 8000 --reload
