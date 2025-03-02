@@ -4,7 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import joblib
-import numpy as np
 import pandas as pd
 
 # Initialize FastAPI app
@@ -16,24 +15,27 @@ model = joblib.load("best_rf_model.pkl")
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],   
-    allow_headers=["*"],  
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Mount the static directory to serve HTML, CSS, JS
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 # Route to serve index.html
 @app.get("/")
 async def serve_frontend():
     return FileResponse("static/index.html")
 
+
 # Load expected feature order (from training data)
 expected_features = joblib.load("processed_data.pkl")[0].columns.tolist()
 print("📌 Expected Feature Names (Order Must Match):")
 print(expected_features)
+
 
 # Define the input schema
 class InputData(BaseModel):
@@ -75,6 +77,7 @@ class InputData(BaseModel):
     visibility: float
     Traffic_Jam_Factor: float
     area: int  # Remember, 'area' was encoded!
+
 
 @app.post("/predict")
 async def predict(data: InputData):

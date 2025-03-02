@@ -53,9 +53,9 @@ docker-push:
 	@echo "Pushing image to Docker Hub..."
 	@docker push firasrid/firas-ridene-4data-mlops:latest
 
-
-
 # Clean up cached files
 clean:
 	@echo "Cleaning up cache and old files..."
 	rm -rf __pycache__ .pytest_cache *.pkl *.log
+
+

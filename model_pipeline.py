@@ -3,30 +3,38 @@ import joblib
 import mlflow
 import mlflow.sklearn
 import logging
-import json
 import requests
+import time
+from datetime import datetime
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.model_selection import train_test_split
 
+
 # Configure Elasticsearch logging
-ELASTICSEARCH_URL = "http://localhost:9200"  # Change to "http://elasticsearch:9200" when containerized
+ELASTICSEARCH_URL = (
+    "http://localhost:9200"  # Change to "http://elasticsearch:9200" when containerized
+)
 INDEX_NAME = "mlflow-logs"  # Elasticsearch index name
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def send_to_elasticsearch(data):
     """Send log data to Elasticsearch."""
     try:
-        response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_doc", 
-                                 json=data, 
-                                 headers={"Content-Type": "application/json"})
+        response = requests.post(
+            f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_doc",
+            json=data,
+            headers={"Content-Type": "application/json"},
+        )
         if response.status_code not in [200, 201]:
             logger.error(f"Failed to send log to Elasticsearch: {response.text}")
     except Exception as e:
         logger.error(f"Error connecting to Elasticsearch: {e}")
+
 
 # Prepare Data Function
 def prepare_data():
@@ -36,19 +44,21 @@ def prepare_data():
     test_df = pd.read_csv("Test.csv")
 
     # Split inputs and targets
-    train_inputs = train_df.drop(columns=['target'])
-    train_targets = train_df['target']
+    train_inputs = train_df.drop(columns=["target"])
+    train_targets = train_df["target"]
     test_inputs = test_df.copy()
 
     # Select features
-    dropped_columns = ['device', 'id']
+    dropped_columns = ["device", "id"]
     train_inputs.drop(columns=dropped_columns, inplace=True)
     test_inputs.drop(columns=dropped_columns, inplace=True)
 
     # Transform categorical features
-    categorical_features = ['area']
+    categorical_features = ["area"]
     oe = OrdinalEncoder()
-    train_inputs[categorical_features] = oe.fit_transform(train_inputs[categorical_features])
+    train_inputs[categorical_features] = oe.fit_transform(
+        train_inputs[categorical_features]
+    )
     test_inputs[categorical_features] = oe.transform(test_inputs[categorical_features])
 
     # Missing value imputation
@@ -56,11 +66,14 @@ def prepare_data():
     test_inputs.fillna(0, inplace=True)
 
     # Split training and validation sets
-    X_train, X_test, y_train, y_test = train_test_split(train_inputs, train_targets, test_size=0.2, random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(
+        train_inputs, train_targets, test_size=0.2, random_state=0
+    )
 
     # Save processed data
     joblib.dump((X_train, X_test, y_train, y_test, test_inputs), "processed_data.pkl")
     print("Data preparation complete. Saved as processed_data.pkl.")
+
 
 # Train Model Function
 def train_model():
@@ -89,11 +102,12 @@ def train_model():
             "event": "training_completed",
             "n_estimators": rf.n_estimators,
             "max_depth": rf.max_depth,
-            "status": "success"
+            "status": "success",
         }
         send_to_elasticsearch(log_data)
 
     print("Model logged to MLflow & Elasticsearch.")
+
 
 # Evaluate Model Function
 def evaluate_model():
@@ -104,9 +118,9 @@ def evaluate_model():
 
     print("Validating model...")
     val_predictions = rf.predict(X_test)
-    rmse = mean_squared_error(y_test, val_predictions)**0.5
+    rmse = mean_squared_error(y_test, val_predictions) ** 0.5
     print(f"Root Mean Squared Error = {rmse / 1e6:.3} Mbit/s")
-
+    timestamp = int(time.time() * 1000)
     # Log RMSE to MLflow
     with mlflow.start_run():
         mlflow.log_metric("RMSE", rmse)
@@ -114,11 +128,15 @@ def evaluate_model():
     # Send RMSE to Elasticsearch
     log_data = {
         "event": "evaluation_completed",
-        "rmse_mbit_s": rmse / 1e6
+        "rmse_mbit_s": rmse / 1e6,
+        "evaluation_timestamp": datetime.utcfromtimestamp(timestamp / 1000).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        ),
     }
     send_to_elasticsearch(log_data)
 
     print("Evaluation metrics logged to MLflow & Elasticsearch.")
+
 
 # Save Predictions Function
 def save_predictions():
@@ -131,9 +149,10 @@ def save_predictions():
     test_predictions = rf.predict(test_inputs)
 
     # Save predictions
-    predictions_df = pd.DataFrame({'id': test_inputs.index, 'target': test_predictions})
+    predictions_df = pd.DataFrame({"id": test_inputs.index, "target": test_predictions})
     predictions_df.to_csv("BenchmarkSubmission.csv", index=False)
     print("Predictions saved as BenchmarkSubmission.csv.")
+
 
 # Load Model Function
 def load_model():

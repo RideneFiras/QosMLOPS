@@ -40,7 +40,7 @@ data_variations = [
         "uvIndex": 5.0,
         "visibility": 10.0,
         "Traffic_Jam_Factor": 3.0,
-        "area": 2
+        "area": 2,
     },
     {
         "timestamp": 1624368010,
@@ -80,7 +80,7 @@ data_variations = [
         "uvIndex": 3.0,
         "visibility": 8.0,
         "Traffic_Jam_Factor": 5.0,
-        "area": 1
+        "area": 1,
     },
     {
         "timestamp": 1624370020,
@@ -120,8 +120,8 @@ data_variations = [
         "uvIndex": 4.0,
         "visibility": 12.0,
         "Traffic_Jam_Factor": 2.0,
-        "area": 3
-    }
+        "area": 3,
+    },
 ]
 
 # Save each variation as a CSV file
