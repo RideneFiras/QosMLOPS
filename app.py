@@ -1,18 +1,42 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from sqlalchemy import create_engine, Column, Integer, Float
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel
 import joblib
 import pandas as pd
+import os
 
-# Initialize FastAPI app
+# ✅ Configure PostgreSQL Database Connection
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", "postgresql://postgres:postgres@db:5432/predictions_db"
+)
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+
+# ✅ Define Prediction Table
+class Prediction(Base):
+    __tablename__ = "predictions"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    timestamp = Column(Integer)
+    prediction_mbps = Column(Float)
+
+
+# ✅ Create Database Tables
+Base.metadata.create_all(bind=engine)
+
+# ✅ Initialize FastAPI app
 app = FastAPI()
 
-# Load the trained model
+# ✅ Load the trained model
 model = joblib.load("best_rf_model.pkl")
 
-# Configure CORS
+# ✅ Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,23 +45,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount the static directory to serve HTML, CSS, JS
+# ✅ Mount the static directory to serve HTML, CSS, JS
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-# Route to serve index.html
+# ✅ Route to serve index.html
 @app.get("/")
 async def serve_frontend():
     return FileResponse("static/index.html")
 
 
-# Load expected feature order (from training data)
+# ✅ Dependency to Get DB Session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# ✅ Load expected feature order (from training data)
 expected_features = joblib.load("processed_data.pkl")[0].columns.tolist()
 print("📌 Expected Feature Names (Order Must Match):")
 print(expected_features)
 
 
-# Define the input schema
+# ✅ Define the input schema
 class InputData(BaseModel):
     timestamp: int
     PCell_RSRP_max: float
@@ -79,8 +112,9 @@ class InputData(BaseModel):
     area: int  # Remember, 'area' was encoded!
 
 
+# ✅ Prediction Endpoint
 @app.post("/predict")
-async def predict(data: InputData):
+async def predict(data: InputData, db: Session = Depends(get_db)):
     # Convert input data to a dictionary
     input_dict = data.dict()
 
@@ -100,5 +134,20 @@ async def predict(data: InputData):
     # ✅ Convert to Megabits per second (Mbit/s)
     prediction_mbps = float(prediction[0]) / 1e6
 
+    # ✅ Save to PostgreSQL Database
+    new_prediction = Prediction(
+        timestamp=data.timestamp, prediction_mbps=prediction_mbps
+    )
+    db.add(new_prediction)
+    db.commit()
+    db.refresh(new_prediction)
+
     # Return the prediction result
     return {"prediction_mbps": prediction_mbps}
+
+
+# ✅ Endpoint to Get All Predictions
+@app.get("/predictions")
+async def get_predictions(db: Session = Depends(get_db)):
+    predictions = db.query(Prediction).all()
+    return predictions

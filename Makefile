@@ -59,3 +59,17 @@ clean:
 	rm -rf __pycache__ .pytest_cache *.pkl *.log
 
 
+lint:
+	@echo "🔍 Running Flake8..."
+	@flake8 --ignore=E501 .
+
+# ✅ Run Black (Formatting)
+format:
+	@echo "🖌️ Formatting code with Black..."
+	@black .
+
+# ✅ Run both Flake8 & Black
+check:
+	@echo "🔍 Running Linting & Formatting..."
+	@make format
+	@make lint

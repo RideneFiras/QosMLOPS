@@ -24,6 +24,9 @@
                 console.log("Received response:", response);
 
                 document.getElementById("result").innerText = `📡 Prediction: ${response.prediction_mbps} Mbit/s`;
+                
+                // ✅ Refresh stored predictions after new one is added
+                fetchStoredPredictions();
             };
 
             reader.readAsText(file);
@@ -66,9 +69,39 @@
                 return { prediction_mbps: "Error" };
             }
         }
+
+        async function fetchStoredPredictions() {
+            try {
+                const response = await fetch("/predictions");
+                if (!response.ok) {
+                    throw new Error("Failed to fetch stored predictions.");
+                }
+                const data = await response.json();
+                updatePredictionsTable(data);
+            } catch (error) {
+                console.error("Error fetching predictions:", error);
+            }
+        }
+
+        function updatePredictionsTable(predictions) {
+            const tableBody = document.getElementById("predictions-table-body");
+            tableBody.innerHTML = ""; // Clear previous entries
+
+            predictions.slice(-10).reverse().forEach(prediction => { // Show last 10 predictions
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td class="border px-4 py-2">${new Date(prediction.timestamp * 1000).toLocaleString()}</td>
+                    <td class="border px-4 py-2">${prediction.prediction_mbps.toFixed(2)} Mbit/s</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // ✅ Fetch stored predictions when the page loads
+        window.onload = fetchStoredPredictions;
     </script>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen">
     <div class="bg-white shadow-lg rounded-lg p-6 max-w-md text-center">
         <h2 class="text-2xl font-semibold text-gray-800">📡 QoS Prediction</h2>
         <p class="text-gray-500 mt-2">Upload a CSV file to predict network quality.</p>
@@ -80,6 +113,22 @@
         </label>
 
         <p id="result" class="mt-4 text-lg font-medium text-blue-600">Awaiting input...</p>
+    </div>
+
+    <!-- ✅ Stored Predictions Table -->
+    <div class="bg-white shadow-lg rounded-lg p-6 mt-6 w-full max-w-lg">
+        <h3 class="text-xl font-semibold text-gray-800 text-center">📊 Recent Predictions</h3>
+        <table class="w-full mt-4 border-collapse border border-gray-300">
+            <thead>
+                <tr class="bg-gray-200">
+                    <th class="border px-4 py-2">Timestamp</th>
+                    <th class="border px-4 py-2">Prediction (Mbit/s)</th>
+                </tr>
+            </thead>
+            <tbody id="predictions-table-body">
+                <!-- ✅ Predictions will be dynamically inserted here -->
+            </tbody>
+        </table>
     </div>
 </body>
 </html>

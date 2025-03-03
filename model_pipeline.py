@@ -13,9 +13,7 @@ from sklearn.model_selection import train_test_split
 
 
 # Configure Elasticsearch logging
-ELASTICSEARCH_URL = (
-    "http://localhost:9200"  # Change to "http://elasticsearch:9200" when containerized
-)
+ELASTICSEARCH_URL = "http://localhost:9200"  # "http://elasticsearch:9200"# Change  "http://localhost:9200"  to "http://elasticsearch:9200" when containerized
 INDEX_NAME = "mlflow-logs"  # Elasticsearch index name
 
 logging.basicConfig(level=logging.INFO)

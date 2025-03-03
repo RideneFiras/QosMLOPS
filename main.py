@@ -5,9 +5,8 @@ import mlflow.sklearn
 import os
 
 
-mlflow_uri = os.getenv(
-    "http://localhost:9200", "http://0.0.0.0:5000"
-)  # Default: local MLflow UI
+# ✅ Set MLflow tracking URI to Elasticsearch inside Docker
+mlflow_uri = os.getenv("MLFLOW_TRACKING_URI", "http://elasticsearch:9200")
 mlflow.set_tracking_uri(mlflow_uri)
 
 

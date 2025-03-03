@@ -19,3 +19,5 @@ shap
 flake8
 black
 pre-commit
+psycopg2-binary
+sqlalchemy
