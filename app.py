@@ -9,6 +9,7 @@ from pydantic import BaseModel
 import joblib
 import pandas as pd
 import os
+import shap
 
 # ✅ Determine environment and configure PostgreSQL host
 IS_DOCKER = os.getenv("IS_DOCKER", "false").lower() == "true"
@@ -48,6 +49,9 @@ app = FastAPI()
 # ✅ Load the trained model
 model = joblib.load("best_rf_model.pkl")
 
+# Initiliaze SHAP
+explainer = shap.Explainer(model)
+
 # ✅ Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -65,6 +69,11 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/")
 async def serve_frontend():
     return FileResponse("static/index.html")
+
+
+@app.get("/explain-page")
+async def serve_explain_page():
+    return FileResponse("static/explain.html")
 
 
 # ✅ Dependency to Get DB Session
@@ -163,3 +172,26 @@ async def predict(data: InputData, db: Session = Depends(get_db)):
 async def get_predictions(db: Session = Depends(get_db)):
     predictions = db.query(Prediction).all()
     return predictions
+
+
+@app.post("/explain")
+async def explain(data: InputData):
+    input_dict = data.dict()
+    input_dict["Traffic Jam Factor"] = input_dict.pop("Traffic_Jam_Factor")
+    input_df = pd.DataFrame([input_dict])[expected_features]
+
+    # Generate SHAP values
+    shap_values = explainer(input_df)
+
+    # Convert SHAP values to Mbps (model predicts in bps)
+    explanation_mbps = [val / 1e6 for val in shap_values[0].values.tolist()]
+    base_value_mbps = shap_values.base_values[0] / 1e6
+    predicted_throughput_mbps = base_value_mbps + sum(explanation_mbps)
+
+    # Return cleaned explanation
+    return {
+        "throughput_mbps": predicted_throughput_mbps,
+        "explanation": explanation_mbps,
+        "features": input_df.columns.tolist(),
+        "base_value": base_value_mbps,
+    }

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SHAP Explanation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen text-center">
+  <div class="bg-white shadow-md rounded-lg p-6 max-w-xl w-full">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">🔍 Throughput Explanation</h2>
+    <p class="text-gray-600 mb-2">We're analyzing the results using SHAP and AI...</p>
+    
+    <!-- Loading spinner -->
+    <div id="loading" class="text-blue-600 font-medium mt-4">Loading explanation...</div>
+
+    <!-- Result container -->
+    <div id="explanation-container" class="hidden mt-6">
+      <p class="text-lg font-semibold text-gray-700 mb-4">
+        💡 <span id="throughput-mbps"></span>
+      </p>
+      <div class="text-left text-sm text-gray-600">
+        <h3 class="font-semibold mb-2">Top Contributing Features:</h3>
+        <ul id="feature-list" class="list-disc list-inside"></ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function fetchExplanation() {
+      const inputDataStr = localStorage.getItem("lastInputData");
+      if (!inputDataStr) {
+        document.getElementById("loading").innerText = "No input data found in localStorage.";
+        return;
+      }
+
+      try {
+        const inputData = JSON.parse(inputDataStr);
+
+        const response = await fetch("/explain", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(inputData)
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to get explanation from server.");
+        }
+
+        const result = await response.json();
+
+        // Display predicted throughput
+        document.getElementById("throughput-mbps").innerText =
+          `Predicted Throughput: ${result.throughput_mbps.toFixed(2)} Mbps`;
+
+        // Display top 5 features by SHAP absolute value
+        const shapValues = result.explanation;
+        const features = result.features;
+        const featureList = document.getElementById("feature-list");
+
+        // Pair features with their SHAP values and sort
+        const topFeatures = features.map((feat, i) => ({
+          name: feat,
+          value: shapValues[i],
+          abs: Math.abs(shapValues[i])
+        })).sort((a, b) => b.abs - a.abs);
+
+        topFeatures.forEach(f => {
+          const li = document.createElement("li");
+          li.innerText = `${f.name} (${f.value > 0 ? '+' : ''}${f.value.toFixed(3)} Mbps)`;
+          featureList.appendChild(li);
+        });
+
+        // Hide loading and show explanation
+        document.getElementById("loading").classList.add("hidden");
+        document.getElementById("explanation-container").classList.remove("hidden");
+
+      } catch (error) {
+        document.getElementById("loading").innerText =
+          "Error fetching explanation. Check console for details.";
+        console.error("Error:", error);
+      }
+    }
+
+    window.onload = fetchExplanation;
+  </script>
+</body>
+</html>
