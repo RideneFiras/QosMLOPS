@@ -33,20 +33,23 @@ fastapi:
 	@echo "launching fastapi and webpage"
 	@open http://127.0.0.1:8000/ && uvicorn app:app --reload
 
+	
+    
+
 mlflow:
 	@echo "Launching MLflow"
 	@mlflow server --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5000 &
 	@sleep 2 && open http://127.0.0.1:5000
 
-# Build Docker Image
+# Build Docker Compose Services (includes FastAPI)
 docker-build:
-	@echo "Building Docker image..."
-	@docker build -t firas-ridene-4data-mlops .
+	@echo "Building services defined in docker-compose.yml..."
+	@docker-compose build
 
-# Run Docker Container
+# Run Docker Compose Stack
 docker-run:
-	@echo "Running FastAPI in Docker..."
-	@docker run -p 8000:8000 firas-ridene-4data-mlops
+	@echo "Running full Docker stack with Docker Compose..."
+	@docker-compose up -d
 
 # Push to Docker Hub
 docker-push:

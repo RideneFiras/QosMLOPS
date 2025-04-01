@@ -7,7 +7,7 @@ import requests
 import time
 from datetime import datetime
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.model_selection import train_test_split
 
@@ -117,8 +117,15 @@ def evaluate_model():
     print("Validating model...")
     val_predictions = rf.predict(X_test)
     rmse = mean_squared_error(y_test, val_predictions) ** 0.5
-    print(f"Root Mean Squared Error = {rmse / 1e6:.3} Mbit/s")
+    mae = mean_absolute_error(y_test, val_predictions)  # Mean Absolute Error
+    r2 = r2_score(y_test, val_predictions)  # Fix indentation
+
+    print(f"Root Mean Squared Error = {rmse / 1e6:.3f} Mbit/s")
+    print(f"🔹 MAE: {mae:.2f} Mbps")
+    print(f"🔹 R² Score: {r2:.4f}")
+
     timestamp = int(time.time() * 1000)
+
     # Log RMSE to MLflow
     with mlflow.start_run():
         mlflow.log_metric("RMSE", rmse)
