@@ -141,6 +141,23 @@ This project predicts network Quality of Service (QoS) using machine learning mo
 
 ---
 
+## Code Quality & Formatting
+
+This project uses the following tools to ensure clean and consistent code:
+
+- **[Black](https://black.readthedocs.io/)**: For automatic Python code formatting.
+- **[Flake8](https://flake8.pycqa.org/)**: For linting and enforcing PEP8 compliance.
+
+These tools are automatically triggered before every commit via pre-commit hooks.
+
+> 🛠️ You can run them manually with:
+```bash
+black .
+flake8 .
+```
+
+---
+
 ## Technologies Used
 
 - **FastAPI**: Backend API framework.
