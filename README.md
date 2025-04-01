@@ -1,6 +1,16 @@
 # QoS Prediction with MLOps
 
+![Demo Screenshot](assets/demo.png)
+
+[![FastAPI](https://img.shields.io/badge/backend-FastAPI-green?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Dockerized](https://img.shields.io/badge/deployment-Docker-blue?logo=docker)](https://www.docker.com/)
+[![MLflow](https://img.shields.io/badge/MLflow-integrated-purple?logo=mlflow)](https://mlflow.org/)
+[![PostgreSQL](https://img.shields.io/badge/database-PostgreSQL-blue?logo=postgresql)](https://www.postgresql.org/)
+[![Made with Python](https://img.shields.io/badge/Made%20with-Python-yellow?logo=python)](https://www.python.org/)
+
 This project predicts network Quality of Service (QoS) using machine learning models. It integrates a full MLOps pipeline, including data preparation, model training, evaluation, and deployment using FastAPI. The project also includes Docker and Docker Compose for containerization and orchestration, along with advanced features for real-time predictions and data visualization.
+
+---
 
 ## Features
 
@@ -41,8 +51,8 @@ This project predicts network Quality of Service (QoS) using machine learning mo
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/your-repo/Firas-Ridene-4DATA-MLOPS.git
-   cd Firas-Ridene-4DATA-MLOPS
+   git clone https://github.com/RideneFiras/QosMLOPS.git
+   cd QosMLOPS
    ```
 
 2. **Install Python Dependencies**:
