@@ -76,3 +76,13 @@ check:
 	@echo "🔍 Running Linting & Formatting..."
 	@make format
 	@make lint
+
+# Start only the PostgreSQL service
+db:
+	@echo "🟢 Starting PostgreSQL container (Docker Compose)..."
+	docker compose up db
+
+# Stop and remove all containers from docker-compose
+docker-down:
+	@echo "🛑 Shutting down all Docker Compose services..."
+	docker compose down

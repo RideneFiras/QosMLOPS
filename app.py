@@ -10,10 +10,22 @@ import joblib
 import pandas as pd
 import os
 
-# ✅ Configure PostgreSQL Database Connection
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql://postgres:postgres@db:5432/predictions_db"
+# ✅ Determine environment and configure PostgreSQL host
+IS_DOCKER = os.getenv("IS_DOCKER", "false").lower() == "true"
+POSTGRES_HOST = "db" if IS_DOCKER else "localhost"
+POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "predictions_db")
+
+print(
+    f"🔧 Running in {'Docker' if IS_DOCKER else 'Local'} mode — "
+    f"Connecting to {POSTGRES_USER}@{POSTGRES_HOST}/{POSTGRES_DB}"
 )
+
+# ✅ Build the DATABASE_URL
+DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:5432/{POSTGRES_DB}"
+
+# ✅ Connect to PostgreSQL
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

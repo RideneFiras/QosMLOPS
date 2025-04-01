@@ -1,5 +1,3 @@
-
-
 services:
   fastapi:
     build: .
@@ -7,37 +5,37 @@ services:
     depends_on:
       - db
       - elasticsearch
-      - mlflow  # ✅ Now depends on MLflow
+      - mlflow
     restart: always
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://user:password@db:5432/predictions_db
-      - MLFLOW_TRACKING_URI=http://mlflow:5000  # ✅ Point FastAPI to MLflow container
+      - IS_DOCKER=true  # ✅ Tells app.py to use `db` as host
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
     command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 
   mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.9.2  # ✅ Official MLflow image
+    image: ghcr.io/mlflow/mlflow:v2.9.2
     container_name: mlflow_server
     depends_on:
       - db
       - elasticsearch
     environment:
-      - MLFLOW_TRACKING_URI=http://0.0.0.0:5000  # ✅ MLflow will run at port 5000
-      - BACKEND_STORE_URI=sqlite:///mlflow.db  # ✅ Store MLflow metadata in SQLite (or switch to PostgreSQL)
-      - ARTIFACT_ROOT=/mlflow/artifacts  # ✅ Directory for storing models
+      - MLFLOW_TRACKING_URI=http://0.0.0.0:5000
+      - BACKEND_STORE_URI=sqlite:///mlflow.db
+      - ARTIFACT_ROOT=/mlflow/artifacts
     ports:
       - "5000:5000"
     volumes:
-      - mlflow_data:/mlflow  # ✅ Persist MLflow logs
+      - mlflow_data:/mlflow
 
   db:
     image: postgres:latest
     container_name: postgres_db
     restart: always
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: predictions_db
     ports:
       - "5432:5432"
@@ -49,7 +47,7 @@ services:
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
-      - xpack.security.enabled=false  
+      - xpack.security.enabled=false
     ports:
       - "9200:9200"
       - "9300:9300"
@@ -66,4 +64,4 @@ services:
 
 volumes:
   pgdata:
-  mlflow_data:  # ✅ Volume to persist MLflow logs
+  mlflow_data:
