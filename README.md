@@ -8,7 +8,8 @@
 [![PostgreSQL](https://img.shields.io/badge/database-PostgreSQL-blue?logo=postgresql)](https://www.postgresql.org/)
 [![Made with Python](https://img.shields.io/badge/Made%20with-Python-yellow?logo=python)](https://www.python.org/)
 
-This project predicts network Quality of Service (QoS) using machine learning models. It integrates a full MLOps pipeline, including data preparation, model training, evaluation, and deployment using FastAPI. The project also includes Docker and Docker Compose for containerization and orchestration, along with advanced features for real-time predictions and data visualization.
+📡 Project Overview
+This project focuses on predicting network throughput — one of the key indicators of Quality of Service (QoS) in 5G networks — using machine learning models. It integrates a full MLOps pipeline including data preparation, model training, evaluation, and deployment through FastAPI. The solution is containerized with Docker, orchestrated via Docker Compose, and supports real-time predictions with explainable AI and data visualization features.
 
 ---
 
