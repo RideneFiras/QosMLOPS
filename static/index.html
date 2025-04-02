@@ -74,14 +74,24 @@
     }
 
     function handleExplain() {
-      if (!lastInputData) {
-        alert("No input data available for explanation.");
-        return;
-      }
+  if (!lastInputData) {
+    alert("No input data available for explanation.");
+    return;
+  }
 
-      localStorage.setItem("lastInputData", JSON.stringify(lastInputData));
-      window.location.href = "/explain-page";
-    }
+  localStorage.setItem("lastInputData", JSON.stringify(lastInputData));
+
+  const popup = window.open(
+    "/explain-page",
+    "ExplainPopup",
+    "width=600,height=700,scrollbars=yes,resizable=yes"
+  );
+
+  if (!popup || popup.closed || typeof popup.closed === "undefined") {
+    alert("Popup blocked! Please allow popups for this website.");
+  }
+}
+
 
     async function fetchStoredPredictions() {
       try {
