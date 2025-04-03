@@ -12,5 +12,5 @@ seaborn==0.13.2
 shap==0.45.0
 requests==2.31.0
 jupyter==1.1.1
-openai==1.14.3
+openai
 python-dotenv==1.0.1

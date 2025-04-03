@@ -10,7 +10,7 @@ import joblib
 import pandas as pd
 import os
 import shap
-
+from services.chatgpt_service import generate_qos_insight
 
 # ✅ Determine environment and configure PostgreSQL host
 IS_DOCKER = os.getenv("IS_DOCKER", "false").lower() == "true"
@@ -200,51 +200,8 @@ async def explain(data: InputData):
 
 @app.post("/chat")
 async def chat_explanation(data: dict):
-    throughput = data["throughput_mbps"]
-    shap_values = data["explanation"]
-    features = data["features"]
-
-    # Format SHAP features list
-    formatted_features = "\n".join(
-        [
-            f"- {feat}: {'+' if val >= 0 else ''}{round(val, 3)} Mbps"
-            for feat, val in zip(features, shap_values)
-        ]
+    insight = generate_qos_insight(
+        data["throughput_mbps"], data["explanation"], data["features"]
     )
-
-    # Full prompt
-    prompt = f"""
-You are a telecom and AI expert assisting a 5G network optimization system.
-
-A machine learning model has predicted a user's throughput in Mbps based on 5G network features.
-It also provides SHAP values showing how each feature influenced the predicted speed.
-
-📡 Predicted Throughput: {round(throughput, 2)} Mbps
-
-📊 SHAP Feature Contributions:
-{formatted_features}
-
-Your task is to analyze this prediction and provide a clear explanation in the context of Quality of Service (QoS).
-
-Please include:
-- **QoS Rating**
-  Categorize the throughput into one of the following:
-  - Very Low (<15 Mbps)
-  - Low (15–30 Mbps)
-  - Medium (30–60 Mbps)
-  - Good (60–100 Mbps)
-  - Very Good (>100 Mbps)
-
-- **Top Influencing Factors**
-  Summarize what increased or decreased the throughput.
-  Use terms like RSRP, SNR, bandwidth, congestion, interference, etc.
-
-- **Recommendations**
-  If QoS is Low or Very Low → suggest improvements (e.g., optimize SNR, boost resource allocation).
-  If QoS is Good or Very Good → explain what worked well.
-
-✅ Use a professional but simple tone.
-❌ Do not list raw SHAP numbers — summarize the insights clearly.
-""".strip()
-
-    return {"prompt_preview": prompt}
+    print("✅ Insight generated:\n", insight)
+    return {"insight": insight}
