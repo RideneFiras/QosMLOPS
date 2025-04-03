@@ -11,8 +11,8 @@ mlflow.db
 
 # Ignore Large or Temporary Files
 *.pkl
-*.csv
-BenchmarkSubmission.csv  # If you regenerate it frequently
+testinput
+BenchmarkSubmission.csv  
 SampleSubmission.csv
 processed_data.pkl
 
@@ -21,3 +21,5 @@ csv.py
 shap_analysis.ipynb
 json.txt
 QoS_Prediction_StarterNotebook.ipynb
+.env
+test.py

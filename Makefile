@@ -30,9 +30,11 @@ notebook:
 	@jupyter notebook
 
 fastapi:
-	@echo "launching fastapi and webpage"
-	@open http://127.0.0.1:8000/ && uvicorn app:app --reload
-
+	@echo "Launching database in background..."
+	docker compose up -d db
+	@echo "Starting FastAPI..."
+	@open http://127.0.0.1:8000/
+	uvicorn app:app --reload
 	
     
 

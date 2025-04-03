@@ -6,8 +6,7 @@
   <title>QoS Explanation</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-</head>
-<style>
+  <style>
     @media print {
       button {
         display: none;
@@ -17,90 +16,92 @@
       }
     }
   </style>
-  
+</head>
 <body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen text-center">
   <div class="bg-white shadow-md rounded-lg p-6 max-w-xl w-full">
     <h2 class="text-2xl font-bold text-gray-800 mb-4">📶 QoS Insight</h2>
     <p class="text-gray-600 mb-2">Using AI to explain network performance</p>
 
+    <!-- Loading -->
     <div id="loading" class="text-blue-600 font-medium mt-4">⏳ Generating insight...</div>
 
-    <!-- Final insight from GPT -->
+    <!-- Insight -->
     <div id="explanation-container" class="hidden mt-6 text-left text-gray-700 text-sm whitespace-pre-wrap bg-gray-50 p-4 rounded shadow">
-    <div id="gpt-output" class="prose prose-sm"></div>
+      <div id="gpt-output" class="prose prose-sm"></div>
     </div>
-    <!-- Download as PDF using browser print -->
-<button
-onclick="window.print()"
-class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded"
->
-🖨️ Print / Save as PDF
-</button>
 
+    <!-- Download as PDF using browser print -->
+    <button
+      id="print-btn"
+      onclick="window.print()"
+      class="hidden mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded"
+    >
+      🖨️ Print / Save as PDF
+    </button>
   </div>
 
   <script>
- async function fetchExplanationViaChat() {
-  const inputDataStr = localStorage.getItem("lastInputData");
-  if (!inputDataStr) {
-    document.getElementById("loading").innerText = "⚠️ No input data found.";
-    return;
-  }
+    async function fetchExplanationViaChat() {
+      const inputDataStr = localStorage.getItem("lastInputData");
+      if (!inputDataStr) {
+        document.getElementById("loading").innerText = "⚠️ No input data found.";
+        return;
+      }
 
-  const inputHash = btoa(inputDataStr); // Base64 hash for caching
-  const cachedHash = localStorage.getItem("lastHash");
-  const cachedInsight = localStorage.getItem("lastInsight");
+      const inputHash = btoa(inputDataStr); // Base64 hash for caching
+      const cachedHash = localStorage.getItem("lastHash");
+      const cachedInsight = localStorage.getItem("lastInsight");
 
-  // ✅ Use cached insight if input hasn't changed
-  if (inputHash === cachedHash && cachedInsight) {
-    document.getElementById("gpt-output").innerHTML = marked.parse(cachedInsight); // ✅ FIXED
-    document.getElementById("loading").classList.add("hidden");
-    document.getElementById("explanation-container").classList.remove("hidden");
-    return;
-  }
+      // ✅ Use cached insight if input hasn't changed
+      if (inputHash === cachedHash && cachedInsight) {
+        document.getElementById("gpt-output").innerHTML = marked.parse(cachedInsight);
+        document.getElementById("loading").classList.add("hidden");
+        document.getElementById("explanation-container").classList.remove("hidden");
+        document.getElementById("print-btn").classList.remove("hidden");
+        return;
+      }
 
-  try {
-    const inputData = JSON.parse(inputDataStr);
+      try {
+        const inputData = JSON.parse(inputDataStr);
 
-    // Step 1: Get SHAP values from /explain
-    const explainRes = await fetch("/explain", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(inputData)
-    });
+        // Step 1: Get SHAP values from /explain
+        const explainRes = await fetch("/explain", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(inputData)
+        });
 
-    if (!explainRes.ok) throw new Error("Failed to fetch SHAP from /explain.");
-    const explainData = await explainRes.json();
+        if (!explainRes.ok) throw new Error("Failed to fetch SHAP from /explain.");
+        const explainData = await explainRes.json();
 
-    // Step 2: Send SHAP to /chat
-    const chatRes = await fetch("/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        throughput_mbps: explainData.throughput_mbps,
-        explanation: explainData.explanation,
-        features: explainData.features
-      })
-    });
+        // Step 2: Send SHAP to /chat
+        const chatRes = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            throughput_mbps: explainData.throughput_mbps,
+            explanation: explainData.explanation,
+            features: explainData.features
+          })
+        });
 
-    if (!chatRes.ok) throw new Error("Failed to get GPT insight.");
-    const chatData = await chatRes.json();
+        if (!chatRes.ok) throw new Error("Failed to get GPT insight.");
+        const chatData = await chatRes.json();
 
-    // ✅ Cache this insight and its hash
-    localStorage.setItem("lastHash", inputHash);
-    localStorage.setItem("lastInsight", chatData.insight);
+        // ✅ Cache and render
+        localStorage.setItem("lastHash", inputHash);
+        localStorage.setItem("lastInsight", chatData.insight);
 
-    // ✅ Render markdown
-    document.getElementById("gpt-output").innerHTML = marked.parse(chatData.insight);
-    document.getElementById("loading").classList.add("hidden");
-    document.getElementById("explanation-container").classList.remove("hidden");
-    
+        document.getElementById("gpt-output").innerHTML = marked.parse(chatData.insight);
+        document.getElementById("loading").classList.add("hidden");
+        document.getElementById("explanation-container").classList.remove("hidden");
+        document.getElementById("print-btn").classList.remove("hidden");
 
-  } catch (err) {
-    document.getElementById("loading").innerText = "⚠️ Error fetching insight.";
-    console.error(err);
-  }
-}
+      } catch (err) {
+        document.getElementById("loading").innerText = "⚠️ Error fetching insight.";
+        console.error(err);
+      }
+    }
 
     window.onload = fetchExplanationViaChat;
   </script>
