@@ -10,12 +10,10 @@ mlartifacts/
 mlflow.db
 
 # Ignore Large or Temporary Files
-*.pkl
-testinput
+
 BenchmarkSubmission.csv  
 SampleSubmission.csv
-processed_data.pkl
-
+.DS_Store
 # Ignore Specific Unnecessary Files
 csv.py
 shap_analysis.ipynb

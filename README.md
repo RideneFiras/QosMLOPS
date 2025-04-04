@@ -1,6 +1,6 @@
 # QoS Prediction with MLOps
 
-![Demo Screenshot](assets/demo.png)
+![Demo Screenshot](assets/demo1.png)
 
 [![FastAPI](https://img.shields.io/badge/backend-FastAPI-green?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Dockerized](https://img.shields.io/badge/deployment-Docker-blue?logo=docker)](https://www.docker.com/)
@@ -59,6 +59,10 @@ This project predicts network throughput — a key indicator of Quality of Servi
 # Clone repo
 git clone https://github.com/RideneFiras/QosMLOPS.git
 cd QosMLOPS
+
+#Create and activate a virtual environment (recommended)
+python -m venv qos
+source qos/bin/activate
 
 # Install Python dependencies
 pip install -r requirements.txt

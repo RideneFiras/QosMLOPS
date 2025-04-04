@@ -1,5 +1,5 @@
 # Define Python executable
-PYTHON = python3.10
+PYTHON = python
 
 # Data Preparation: Load and process features
 prepare:
