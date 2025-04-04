@@ -1,134 +1,159 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QoS Prediction</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        async function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QoS Prediction</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 
-            const reader = new FileReader();
-            reader.onload = async function (e) {
-                const csvData = e.target.result;
-                const jsonData = csvToJson(csvData);
-                
-                if (jsonData.length === 0) {
-                    alert("Invalid CSV file or format.");
-                    return;
-                }
+  <script>
+    let lastInputData = null;
 
-                const response = await sendToFastAPI(jsonData[0]);  // Send the first row for prediction
-                console.log("Received response:", response);
+    async function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
 
-                document.getElementById("result").innerText = `📡 Prediction: ${response.prediction_mbps} Mbit/s`;
-                
-                // ✅ Refresh stored predictions after new one is added
-                fetchStoredPredictions();
-            };
+      const reader = new FileReader();
+      reader.onload = async function (e) {
+        const csvData = e.target.result;
+        const jsonData = csvToJson(csvData);
 
-            reader.readAsText(file);
+        if (jsonData.length === 0) {
+          alert("Invalid CSV file or format.");
+          return;
         }
 
-        function csvToJson(csv) {
-            const lines = csv.split("\n").map(line => line.trim()).filter(line => line.length > 0);
-            const headers = lines[0].split(",");
-            const jsonData = [];
+        lastInputData = jsonData[0];
+        console.log("🔁 Saved input for SHAP explanation:", lastInputData);
 
-            for (let i = 1; i < lines.length; i++) {
-                const values = lines[i].split(",");
-                if (values.length !== headers.length) continue; // Skip invalid rows
+        const response = await sendToFastAPI(jsonData[0]);
+        console.log("Received response:", response);
 
-                let obj = {};
-                for (let j = 0; j < headers.length; j++) {
-                    obj[headers[j].trim()] = isNaN(values[j]) ? values[j].trim() : parseFloat(values[j]);
-                }
-                jsonData.push(obj);
-            }
-            return jsonData;
+        document.getElementById("result").innerText = `📡 Prediction: ${response.prediction_mbps} Mbit/s`;
+
+        document.getElementById("explainBtn").classList.remove("hidden");
+        fetchStoredPredictions();
+      };
+
+      reader.readAsText(file);
+    }
+
+    function csvToJson(csv) {
+      const lines = csv.split("\n").map(line => line.trim()).filter(line => line.length > 0);
+      const headers = lines[0].split(",");
+      const jsonData = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(",");
+        if (values.length !== headers.length) continue;
+
+        let obj = {};
+        for (let j = 0; j < headers.length; j++) {
+          obj[headers[j].trim()] = isNaN(values[j]) ? values[j].trim() : parseFloat(values[j]);
         }
+        jsonData.push(obj);
+      }
+      return jsonData;
+    }
 
-        async function sendToFastAPI(data) {
-            try {
-                const response = await fetch("/predict", {  // ✅ Relative URL
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(data)
-                });
+    async function sendToFastAPI(data) {
+      try {
+        const response = await fetch("/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
 
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.statusText}`);
-                }
+        if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+        return await response.json();
+      } catch (error) {
+        console.error("Error:", error);
+        alert("Failed to get prediction.");
+        return { prediction_mbps: "Error" };
+      }
+    }
 
-                return await response.json();
-            } catch (error) {
-                console.error("Error:", error);
-                alert("Failed to get prediction. Check console for details.");
-                return { prediction_mbps: "Error" };
-            }
-        }
+    function handleExplain() {
+  if (!lastInputData) {
+    alert("No input data available for explanation.");
+    return;
+  }
 
-        async function fetchStoredPredictions() {
-            try {
-                const response = await fetch("/predictions");
-                if (!response.ok) {
-                    throw new Error("Failed to fetch stored predictions.");
-                }
-                const data = await response.json();
-                updatePredictionsTable(data);
-            } catch (error) {
-                console.error("Error fetching predictions:", error);
-            }
-        }
+  localStorage.setItem("lastInputData", JSON.stringify(lastInputData));
 
-        function updatePredictionsTable(predictions) {
-            const tableBody = document.getElementById("predictions-table-body");
-            tableBody.innerHTML = ""; // Clear previous entries
+  const popup = window.open(
+    "/explain-page",
+    "ExplainPopup",
+    "width=600,height=700,scrollbars=yes,resizable=yes"
+  );
 
-            predictions.slice(-10).reverse().forEach(prediction => { // Show last 10 predictions
-                const row = document.createElement("tr");
-                row.innerHTML = `
-                    <td class="border px-4 py-2">${new Date(prediction.timestamp * 1000).toLocaleString()}</td>
-                    <td class="border px-4 py-2">${prediction.prediction_mbps.toFixed(2)} Mbit/s</td>
-                `;
-                tableBody.appendChild(row);
-            });
-        }
+  if (!popup || popup.closed || typeof popup.closed === "undefined") {
+    alert("Popup blocked! Please allow popups for this website.");
+  }
+}
 
-        // ✅ Fetch stored predictions when the page loads
-        window.onload = fetchStoredPredictions;
-    </script>
+
+    async function fetchStoredPredictions() {
+      try {
+        const response = await fetch("/predictions");
+        if (!response.ok) throw new Error("Failed to fetch stored predictions.");
+        const data = await response.json();
+        updatePredictionsTable(data);
+      } catch (error) {
+        console.error("Error fetching predictions:", error);
+      }
+    }
+
+    function updatePredictionsTable(predictions) {
+      const tableBody = document.getElementById("predictions-table-body");
+      tableBody.innerHTML = "";
+
+      predictions.slice(-10).reverse().forEach(prediction => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td class="border px-4 py-2">${new Date(prediction.timestamp * 1000).toLocaleString()}</td>
+          <td class="border px-4 py-2">${prediction.prediction_mbps.toFixed(2)} Mbit/s</td>
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+
+    window.onload = fetchStoredPredictions;
+  </script>
 </head>
+
 <body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen">
-    <div class="bg-white shadow-lg rounded-lg p-6 max-w-md text-center">
-        <h2 class="text-2xl font-semibold text-gray-800">📡 QoS Prediction</h2>
-        <p class="text-gray-500 mt-2">Upload a CSV file to predict network quality.</p>
+  <div class="bg-white shadow-lg rounded-lg p-6 max-w-md text-center">
+    <h2 class="text-2xl font-semibold text-gray-800">📡 QoS Prediction</h2>
+    <p class="text-gray-500 mt-2">Upload a CSV file to predict network quality.</p>
 
-        <label class="block mt-4">
-            <span class="sr-only">Choose a file</span>
-            <input type="file" id="csvFile" accept=".csv" onchange="handleFileUpload(event)" 
-                class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-white file:bg-blue-500 hover:file:bg-blue-600 cursor-pointer"/>
-        </label>
+    <label class="block mt-4">
+      <span class="sr-only">Choose a file</span>
+      <input type="file" id="csvFile" accept=".csv" onchange="handleFileUpload(event)"
+        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-white file:bg-blue-500 hover:file:bg-blue-600 cursor-pointer"/>
+    </label>
 
-        <p id="result" class="mt-4 text-lg font-medium text-blue-600">Awaiting input...</p>
-    </div>
+    <p id="result" class="mt-4 text-lg font-medium text-blue-600">Awaiting input...</p>
 
-    <!-- ✅ Stored Predictions Table -->
-    <div class="bg-white shadow-lg rounded-lg p-6 mt-6 w-full max-w-lg">
-        <h3 class="text-xl font-semibold text-gray-800 text-center">📊 Recent Predictions</h3>
-        <table class="w-full mt-4 border-collapse border border-gray-300">
-            <thead>
-                <tr class="bg-gray-200">
-                    <th class="border px-4 py-2">Timestamp</th>
-                    <th class="border px-4 py-2">Prediction (Mbit/s)</th>
-                </tr>
-            </thead>
-            <tbody id="predictions-table-body">
-                <!-- ✅ Predictions will be dynamically inserted here -->
-            </tbody>
-        </table>
-    </div>
+    <button id="explainBtn" onclick="handleExplain()"
+      class="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 hidden">
+      🔍 Explain Prediction
+    </button>
+  </div>
+
+  <div class="bg-white shadow-lg rounded-lg p-6 mt-6 w-full max-w-lg">
+    <h3 class="text-xl font-semibold text-gray-800 text-center">📊 Recent Predictions</h3>
+    <table class="w-full mt-4 border-collapse border border-gray-300">
+      <thead>
+        <tr class="bg-gray-200">
+          <th class="border px-4 py-2">Timestamp</th>
+          <th class="border px-4 py-2">Prediction (Mbit/s)</th>
+        </tr>
+      </thead>
+      <tbody id="predictions-table-body">
+        <!-- Dynamic content here -->
+      </tbody>
+    </table>
+  </div>
 </body>
 </html>

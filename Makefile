@@ -1,5 +1,5 @@
 # Define Python executable
-PYTHON = python3.10
+PYTHON = python
 
 # Data Preparation: Load and process features
 prepare:
@@ -30,9 +30,11 @@ notebook:
 	@jupyter notebook
 
 fastapi:
-	@echo "launching fastapi and webpage"
-	@open http://127.0.0.1:8000/ && uvicorn app:app --reload
-
+	@echo "Launching database in background..."
+	docker compose up -d db
+	@echo "Starting FastAPI..."
+	@open http://127.0.0.1:8000/
+	uvicorn app:app --reload
 	
     
 
@@ -76,3 +78,13 @@ check:
 	@echo "🔍 Running Linting & Formatting..."
 	@make format
 	@make lint
+
+# Start only the PostgreSQL service
+db:
+	@echo "🟢 Starting PostgreSQL container (Docker Compose)..."
+	docker compose up db
+
+# Stop and remove all containers from docker-compose
+docker-down:
+	@echo "🛑 Shutting down all Docker Compose services..."
+	docker compose down

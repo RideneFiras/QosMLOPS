@@ -1,6 +1,6 @@
 # QoS Prediction with MLOps
 
-![Demo Screenshot](assets/demo.png)
+![Demo Screenshot](assets/demo1.png)
 
 [![FastAPI](https://img.shields.io/badge/backend-FastAPI-green?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Dockerized](https://img.shields.io/badge/deployment-Docker-blue?logo=docker)](https://www.docker.com/)
@@ -8,167 +8,136 @@
 [![PostgreSQL](https://img.shields.io/badge/database-PostgreSQL-blue?logo=postgresql)](https://www.postgresql.org/)
 [![Made with Python](https://img.shields.io/badge/Made%20with-Python-yellow?logo=python)](https://www.python.org/)
 
-This project predicts network Quality of Service (QoS) using machine learning models. It integrates a full MLOps pipeline, including data preparation, model training, evaluation, and deployment using FastAPI. The project also includes Docker and Docker Compose for containerization and orchestration, along with advanced features for real-time predictions and data visualization.
+---
+
+## 📡 Project Overview
+
+This project predicts network throughput — a key indicator of Quality of Service (QoS) in 5G networks — using machine learning. It integrates a full MLOps pipeline, SHAP explainability, and GPT-powered human-readable insights. Everything runs on a Dockerized stack with FastAPI and a simple frontend for real-time use.
 
 ---
 
-## Features
-
-- **Frontend**: A web interface for uploading CSV files and viewing predictions.
-- **Backend**: A FastAPI server for handling predictions and storing results in a PostgreSQL database.
-- **MLOps Pipeline**: Data preparation, model training, evaluation, and prediction.
-- **MLflow Integration**: Tracks experiments and model artifacts.
-- **Elasticsearch & Kibana**: For logging and visualization.
-- **Dockerized Deployment**: Fully containerized with Docker Compose.
-- **Dynamic Predictions Table**: Displays the last 10 predictions in real-time.
-- **CSV Parsing**: Converts uploaded CSV files into JSON for model input.
-- **PostgreSQL Integration**: Stores predictions with timestamps for future analysis.
-- **CORS Support**: Allows cross-origin requests for frontend-backend communication.
-- **Model Persistence**: Trained models are saved and loaded for predictions.
-
----
-
-## Project Structure
-
-- **`static/`**: Contains the frontend HTML, CSS, and JavaScript files.
-- **`main.py`**: Entry point for running the MLOps pipeline.
-- **`app.py`**: FastAPI application for serving predictions and the frontend.
-- **`Dockerfile`**: Defines the Docker image for the project.
-- **`docker-compose.yml`**: Orchestrates multiple services (FastAPI, PostgreSQL, MLflow, Elasticsearch, Kibana).
-- **`Makefile`**: Simplifies common tasks like training, evaluating, and deploying.
-
----
-
-## Prerequisites
-
-- **Python 3.10**
-- **Docker & Docker Compose**
-- **Node.js** (optional, for frontend development)
-
----
-
-## Setup Instructions
-
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/RideneFiras/QosMLOPS.git
-   cd QosMLOPS
-   ```
-
-2. **Install Python Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Run the MLOps Pipeline**:
-   ```bash
-   make all
-   ```
-
-4. **Start the FastAPI Server**:
-   ```bash
-   make fastapi
-   ```
-
-5. **Launch MLflow**:
-   ```bash
-   make mlflow
-   ```
-
-6. **Run with Docker Compose**:
-   ```bash
-   docker-compose up --build
-   ```
-
----
-
-## Usage
+## ✨ Features
 
 ### Frontend
-- Open the web interface at `http://127.0.0.1:8000/`.
-- Upload a CSV file to predict QoS.
-- View recent predictions in the table.
+- Upload CSV to get QoS predictions
+- View GPT-powered QoS insights per prediction
+- Explanations are cached to avoid repeated API calls
+- One-click export as PDF
 
 ### Backend
-- Access the FastAPI docs at `http://127.0.0.1:8000/docs`.
-- Use the `/predict` endpoint to send data for predictions.
-- Retrieve stored predictions from the `/predictions` endpoint.
+- FastAPI for prediction, SHAP explainability, and GPT insight
+- Uses SHAP values to interpret each prediction
+- GPT-4o via GitHub Marketplace generates human-readable QoS summaries
+- PostgreSQL stores results
+
+### MLOps Pipeline
+- Data preparation, model training, evaluation
+- MLflow logs model performance and artifacts
+- Supports structured Makefile commands
 
 ---
 
-## Key Commands
+## 🗂️ Project Structure
 
-- **Prepare Data**:
-  ```bash
-  make prepare
-  ```
-- **Train Model**:
-  ```bash
-  make train
-  ```
-- **Evaluate Model**:
-  ```bash
-  make evaluate
-  ```
-- **Generate Predictions**:
-  ```bash
-  make predict
-  ```
-
----
-
-## Docker Commands
-
-- **Build Docker Image**:
-  ```bash
-  make docker-build
-  ```
-- **Run Docker Container**:
-  ```bash
-  make docker-run
-  ```
-- **Push to Docker Hub**:
-  ```bash
-  make docker-push
-  ```
-
----
-
-## Environment Variables
-
-- `DATABASE_URL`: PostgreSQL connection string.
-- `MLFLOW_TRACKING_URI`: MLflow tracking server URI.
-
----
-
-## Code Quality & Formatting
-
-This project uses the following tools to ensure clean and consistent code:
-
-- **[Black](https://black.readthedocs.io/)**: For automatic Python code formatting.
-- **[Flake8](https://flake8.pycqa.org/)**: For linting and enforcing PEP8 compliance.
-
-These tools are automatically triggered before every commit via pre-commit hooks.
-
-> 🛠️ You can run them manually with:
-```bash
-black .
-flake8 .
+```
+├── static/                  # Frontend HTML + JS
+├── services/                # SHAP + GPT logic
+├── model_pipeline.py        # Sklearn pipeline + preprocessing
+├── app.py                   # FastAPI server
+├── main.py                  # MLOps training & evaluation
+├── docker-compose.yml       # Orchestrates app + DB + MLflow
+├── requirements.txt         # Dependencies
+├── Makefile                 # Commands for MLOps & server
+└── .env                     # Environment variables (not tracked)
 ```
 
 ---
 
-## Technologies Used
+## ⚙️ Setup
 
-- **FastAPI**: Backend API framework.
-- **PostgreSQL**: Database for storing predictions.
-- **MLflow**: Experiment tracking and model management.
-- **Elasticsearch & Kibana**: Logging and visualization.
-- **Docker**: Containerization.
-- **Tailwind CSS**: Frontend styling.
+```bash
+# Clone repo
+git clone https://github.com/RideneFiras/QosMLOPS.git
+cd QosMLOPS
+
+#Create and activate a virtual environment (recommended)
+python -m venv qos
+source qos/bin/activate
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Train model and prepare everything
+make all
+
+# Start FastAPI and web UI
+make fastapi
+
+# Or launch with Docker
+docker-compose up --build
+```
 
 ---
 
-## Notes
+## 🧠 GPT Insight System
 
-This project is designed to showcase the integration of machine learning and MLOps principles. It demonstrates the use of modern tools and frameworks to build a scalable and maintainable pipeline for QoS prediction.
+Once the model predicts throughput:
+- SHAP values explain feature impact
+- GPT-4o generates a readable QoS report
+- Insight includes:
+  - QoS rating (Very Low → Very Good)
+  - Key influencing factors
+  - Network improvement suggestions
+- Markdown is rendered cleanly in the browser
+- Users can export the result as a PDF
+
+---
+
+## 🧪 Usage Guide
+
+- Open [http://127.0.0.1:8000](http://127.0.0.1:8000)
+- Upload a CSV with test samples
+- Click “Explain” next to any prediction
+- Read GPT-based summary of throughput performance
+- Click **Print / Save as PDF** to export the result
+
+---
+
+## 🔑 Environment Variables
+
+- `DATABASE_URL`: PostgreSQL connection string  
+- `GITHUB_TOKEN`: GitHub token for GPT API access  
+- Store them in a `.env` file (not tracked by git)
+
+---
+
+## 🔧 Makefile Commands
+
+```bash
+make prepare     # Prepare the dataset
+make train       # Train the ML model
+make evaluate    # Evaluate performance
+make predict     # Run batch predictions
+make fastapi     # Start FastAPI + UI
+make mlflow      # Launch MLflow tracking
+make docker-run  # Run app with Docker
+```
+
+---
+
+## ⚙️ Tech Stack
+
+- **Python** & **Scikit-learn**
+- **FastAPI** for serving
+- **SHAP** for explainability
+- **GPT-4o (via GitHub API)** for natural language insight
+- **MLflow** for experiment tracking
+- **PostgreSQL** for database storage
+- **Tailwind CSS** for UI
+- **Docker & Docker Compose** for orchestration
+
+---
+
+## ✅ Notes
+
+This project demonstrates an end-to-end pipeline for AI-powered QoS prediction and explainability. It's optimized for real-world deployment and includes production-ready tooling for interpretability, maintainability, and user communication.

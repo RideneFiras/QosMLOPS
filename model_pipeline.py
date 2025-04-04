@@ -38,8 +38,8 @@ def send_to_elasticsearch(data):
 def prepare_data():
     """Loads and prepares the dataset, then saves processed data."""
     print("Loading data...")
-    train_df = pd.read_csv("Train.csv")
-    test_df = pd.read_csv("Test.csv")
+    train_df = pd.read_csv("Dataset/Train.csv")
+    test_df = pd.read_csv("Dataset/Test.csv")
 
     # Split inputs and targets
     train_inputs = train_df.drop(columns=["target"])

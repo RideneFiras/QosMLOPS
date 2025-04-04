@@ -9,11 +9,25 @@ from pydantic import BaseModel
 import joblib
 import pandas as pd
 import os
+import shap
+from services.chatgpt_service import generate_qos_insight
 
-# ✅ Configure PostgreSQL Database Connection
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql://postgres:postgres@db:5432/predictions_db"
+# ✅ Determine environment and configure PostgreSQL host
+IS_DOCKER = os.getenv("IS_DOCKER", "false").lower() == "true"
+POSTGRES_HOST = "db" if IS_DOCKER else "localhost"
+POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "predictions_db")
+
+print(
+    f"🔧 Running in {'Docker' if IS_DOCKER else 'Local'} mode — "
+    f"Connecting to {POSTGRES_USER}@{POSTGRES_HOST}/{POSTGRES_DB}"
 )
+
+# ✅ Build the DATABASE_URL
+DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:5432/{POSTGRES_DB}"
+
+# ✅ Connect to PostgreSQL
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -36,6 +50,9 @@ app = FastAPI()
 # ✅ Load the trained model
 model = joblib.load("best_rf_model.pkl")
 
+# Initiliaze SHAP
+explainer = shap.Explainer(model)
+
 # ✅ Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -53,6 +70,11 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/")
 async def serve_frontend():
     return FileResponse("static/index.html")
+
+
+@app.get("/explain-page")
+async def serve_explain_page():
+    return FileResponse("static/explain.html")
 
 
 # ✅ Dependency to Get DB Session
@@ -151,3 +173,35 @@ async def predict(data: InputData, db: Session = Depends(get_db)):
 async def get_predictions(db: Session = Depends(get_db)):
     predictions = db.query(Prediction).all()
     return predictions
+
+
+@app.post("/explain")
+async def explain(data: InputData):
+    input_dict = data.dict()
+    input_dict["Traffic Jam Factor"] = input_dict.pop("Traffic_Jam_Factor")
+    input_df = pd.DataFrame([input_dict])[expected_features]
+
+    # Generate SHAP values
+    shap_values = explainer(input_df)
+
+    # Convert SHAP values to Mbps (model predicts in bps)
+    explanation_mbps = [val / 1e6 for val in shap_values[0].values.tolist()]
+    base_value_mbps = shap_values.base_values[0] / 1e6
+    predicted_throughput_mbps = base_value_mbps + sum(explanation_mbps)
+
+    # Return cleaned explanation
+    return {
+        "throughput_mbps": predicted_throughput_mbps,
+        "explanation": explanation_mbps,
+        "features": input_df.columns.tolist(),
+        "base_value": base_value_mbps,
+    }
+
+
+@app.post("/chat")
+async def chat_explanation(data: dict):
+    insight = generate_qos_insight(
+        data["throughput_mbps"], data["explanation"], data["features"]
+    )
+    print("✅ Insight generated:\n", insight)
+    return {"insight": insight}
