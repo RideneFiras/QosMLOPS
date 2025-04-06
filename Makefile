@@ -88,3 +88,6 @@ db:
 docker-down:
 	@echo "🛑 Shutting down all Docker Compose services..."
 	docker compose down
+
+services-up:
+	docker compose up -d elasticsearch kibana db mlflow
