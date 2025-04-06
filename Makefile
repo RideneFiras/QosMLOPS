@@ -64,20 +64,20 @@ clean:
 	rm -rf __pycache__ .pytest_cache *.pkl *.log
 
 
-lint:
-	@echo "🔍 Running Flake8..."
-	@flake8 --ignore=E501 .
-
-# ✅ Run Black (Formatting)
+# Run Black (formatting) via pre-commit
 format:
 	@echo "🖌️ Formatting code with Black..."
-	@black .
+	@pre-commit run black --all-files
 
-# ✅ Run both Flake8 & Black
+# Run Flake8 (linting) via pre-commit
+lint:
+	@echo "🔍 Running Flake8..."
+	@pre-commit run flake8 --all-files
+
+# Run both (Black + Flake8)
 check:
 	@echo "🔍 Running Linting & Formatting..."
-	@make format
-	@make lint
+	@pre-commit run --all-files
 
 # Start only the PostgreSQL service
 db:
