@@ -1,6 +1,6 @@
 # QoS Prediction with MLOps
 
-![Demo Screenshot](assets/demo1.png)
+![Demo Screenshot](assets/gif.gif)
 
 [![FastAPI](https://img.shields.io/badge/backend-FastAPI-green?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Dockerized](https://img.shields.io/badge/deployment-Docker-blue?logo=docker)](https://www.docker.com/)

@@ -2,158 +2,172 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>QoS Prediction</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpeedSense - 5G QoS Predictor</title>
+
+  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-
   <script>
-    let lastInputData = null;
-
-    async function handleFileUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = async function (e) {
-        const csvData = e.target.result;
-        const jsonData = csvToJson(csvData);
-
-        if (jsonData.length === 0) {
-          alert("Invalid CSV file or format.");
-          return;
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#f0f9ff', 100: '#e0f2fe', 200: '#bae6fd', 300: '#7dd3fc',
+              400: '#38bdf8', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1',
+              800: '#075985', 900: '#0c4a6e'
+            },
+            secondary: {
+              50: '#f5f3ff', 100: '#ede9fe', 200: '#ddd6fe', 300: '#c4b5fd',
+              400: '#a78bfa', 500: '#8b5cf6', 600: '#7c3aed', 700: '#6d28d9',
+              800: '#5b21b6', 900: '#4c1d95'
+            }
+          }
         }
-
-        lastInputData = jsonData[0];
-        console.log("🔁 Saved input for SHAP explanation:", lastInputData);
-
-        const response = await sendToFastAPI(jsonData[0]);
-        console.log("Received response:", response);
-
-        document.getElementById("result").innerText = `📡 Prediction: ${response.prediction_mbps} Mbit/s`;
-
-        document.getElementById("explainBtn").classList.remove("hidden");
-        fetchStoredPredictions();
-      };
-
-      reader.readAsText(file);
-    }
-
-    function csvToJson(csv) {
-      const lines = csv.split("\n").map(line => line.trim()).filter(line => line.length > 0);
-      const headers = lines[0].split(",");
-      const jsonData = [];
-
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(",");
-        if (values.length !== headers.length) continue;
-
-        let obj = {};
-        for (let j = 0; j < headers.length; j++) {
-          obj[headers[j].trim()] = isNaN(values[j]) ? values[j].trim() : parseFloat(values[j]);
-        }
-        jsonData.push(obj);
-      }
-      return jsonData;
-    }
-
-    async function sendToFastAPI(data) {
-      try {
-        const response = await fetch("/predict", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data)
-        });
-
-        if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
-        return await response.json();
-      } catch (error) {
-        console.error("Error:", error);
-        alert("Failed to get prediction.");
-        return { prediction_mbps: "Error" };
       }
     }
-
-    function handleExplain() {
-  if (!lastInputData) {
-    alert("No input data available for explanation.");
-    return;
-  }
-
-  localStorage.setItem("lastInputData", JSON.stringify(lastInputData));
-
-  const popup = window.open(
-    "/explain-page",
-    "ExplainPopup",
-    "width=600,height=700,scrollbars=yes,resizable=yes"
-  );
-
-  if (!popup || popup.closed || typeof popup.closed === "undefined") {
-    alert("Popup blocked! Please allow popups for this website.");
-  }
-}
-
-
-    async function fetchStoredPredictions() {
-      try {
-        const response = await fetch("/predictions");
-        if (!response.ok) throw new Error("Failed to fetch stored predictions.");
-        const data = await response.json();
-        updatePredictionsTable(data);
-      } catch (error) {
-        console.error("Error fetching predictions:", error);
-      }
-    }
-
-    function updatePredictionsTable(predictions) {
-      const tableBody = document.getElementById("predictions-table-body");
-      tableBody.innerHTML = "";
-
-      predictions.slice(-10).reverse().forEach(prediction => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td class="border px-4 py-2">${new Date(prediction.timestamp * 1000).toLocaleString()}</td>
-          <td class="border px-4 py-2">${prediction.prediction_mbps.toFixed(2)} Mbit/s</td>
-        `;
-        tableBody.appendChild(row);
-      });
-    }
-
-    window.onload = fetchStoredPredictions;
   </script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <!-- Custom Styles -->
+  <link href="static/scripts/main.css" rel="stylesheet" />
 </head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- Notification -->
+  <div id="notification" class="fixed top-4 right-4 py-2 px-4 rounded-lg shadow-lg opacity-0 transition-opacity duration-500"></div>
 
-<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen">
-  <div class="bg-white shadow-lg rounded-lg p-6 max-w-md text-center">
-    <h2 class="text-2xl font-semibold text-gray-800">📡 QoS Prediction</h2>
-    <p class="text-gray-500 mt-2">Upload a CSV file to predict network quality.</p>
+  <!-- Navigation -->
+  <nav class="bg-gradient-to-r from-primary-600 to-primary-800 shadow-md px-6 py-4">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <div class="text-white text-2xl font-bold">SpeedSense</div>
+        <span class="bg-white text-primary-800 text-xs px-2 py-1 rounded-full">Beta</span>
+      </div>
+      <div class="text-white text-sm"></div>
+    </div>
+  </nav>
 
-    <label class="block mt-4">
-      <span class="sr-only">Choose a file</span>
-      <input type="file" id="csvFile" accept=".csv" onchange="handleFileUpload(event)"
-        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-white file:bg-blue-500 hover:file:bg-blue-600 cursor-pointer"/>
-    </label>
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 py-8 grid md:grid-cols-3 gap-6">
+    <!-- Upload Box -->
+    <div class="md:col-span-2">
+      <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="bg-gradient-to-r from-primary-600 to-primary-800 px-6 py-4">
+          <h2 class="text-xl font-bold text-white flex items-center">
+            <i class="fas fa-broadcast-tower mr-2"></i> QoS Prediction
+          </h2>
+          <p class="text-primary-100 text-sm">Upload network data to predict Quality of Service</p>
+        </div>
 
-    <p id="result" class="mt-4 text-lg font-medium text-blue-600">Awaiting input...</p>
+        <div class="p-6">
+          <div class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
+            <div class="mb-4 text-primary-600">
+              <i class="fas fa-cloud-upload-alt text-4xl"></i>
+            </div>
+            <p class="mb-4 text-sm text-gray-500">Upload a CSV file with network metrics</p>
+            <label class="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors cursor-pointer">
+              <i id="uploadIcon" class="fas fa-file-csv mr-2"></i>
+              <span id="uploadText">Choose File</span>
+              <input type="file" id="csvFile" accept=".csv" class="hidden" />
+            </label>
+            <p id="selectedFileName" class="mt-2 text-xs text-gray-500">No file selected</p>
+          </div>
 
-    <button id="explainBtn" onclick="handleExplain()"
-      class="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 hidden">
-      🔍 Explain Prediction
-    </button>
-  </div>
+          <div class="mt-8">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-lg font-semibold text-gray-700">Prediction Result</h3>
+                <p id="result" class="text-gray-500 mt-1">Upload a file to see prediction</p>
+              </div>
+              <button id="explainBtn" onclick="handleExplain()" class="hidden items-center px-4 py-2 bg-secondary-600 text-white rounded-lg hover:bg-secondary-700 transition-colors">
+                <i class="fas fa-lightbulb mr-2"></i>
+                Explain Prediction
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-  <div class="bg-white shadow-lg rounded-lg p-6 mt-6 w-full max-w-lg">
-    <h3 class="text-xl font-semibold text-gray-800 text-center">📊 Recent Predictions</h3>
-    <table class="w-full mt-4 border-collapse border border-gray-300">
-      <thead>
-        <tr class="bg-gray-200">
-          <th class="border px-4 py-2">Timestamp</th>
-          <th class="border px-4 py-2">Prediction (Mbit/s)</th>
-        </tr>
-      </thead>
-      <tbody id="predictions-table-body">
-        <!-- Dynamic content here -->
-      </tbody>
-    </table>
-  </div>
+    <!-- Speed Gauge -->
+    <div class="md:col-span-1">
+      <div class="bg-white rounded-xl shadow-lg h-full">
+        <div class="p-6">
+          <h3 class="text-lg font-semibold text-gray-700 mb-4">Network Quality</h3>
+          <div class="flex flex-col items-center">
+            <div class="relative w-48 h-28">
+              <canvas id="speedChart" width="200" height="100"></canvas>
+              <div class="absolute inset-0 flex flex-col items-center justify-center pt-6">
+                <span id="speedLabel" class="text-xs text-gray-500">Network Speed</span>
+                <span id="speedClass" class="font-bold text-sm">N/A</span>
+              </div>
+            </div>
+            
+            </div>
+            <div class="mt-4 grid grid-cols-3 w-full text-xs text-center">
+              <div class="text-red-600">Poor</div>
+              <div class="text-yellow-600">Fair</div>
+              <div class="text-green-600">Good</div>
+            </div>
+          </div>
+          <div class="mt-6">
+            <h4 class="text-sm font-medium text-gray-700 mb-2">Network Quality Factors</h4>
+            <ul class="text-xs text-gray-600 space-y-2">
+              <li class="flex items-center">
+                <i class="fas fa-signal text-primary-600 mr-2"></i> <span>RSRP, RSRQ, RSSI, SNR</span>
+              </li>
+              <li class="flex items-center">
+                <i class="fas fa-cloud-sun text-primary-600 mr-2"></i> <span>Weather conditions</span>
+              </li>
+              <li class="flex items-center">
+                <i class="fas fa-map-marker-alt text-primary-600 mr-2"></i> <span>Location & traffic density</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Predictions -->
+    <div class="md:col-span-3">
+      <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="bg-gradient-to-r from-secondary-600 to-secondary-800 px-6 py-4">
+          <h2 class="text-xl font-bold text-white flex items-center">
+            <i class="fas fa-history mr-2"></i> Recent Predictions
+          </h2>
+          <p class="text-secondary-100 text-sm">Last 10 network quality predictions</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="bg-gray-50">
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">Timestamp</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">Prediction (Mbit/s)</th>
+              </tr>
+            </thead>
+            <tbody id="predictions-table-body">
+              <tr>
+                <td colspan="2" class="px-4 py-6 text-center text-gray-500">Loading predictions...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 text-gray-300 py-4 mt-12 text-center text-sm">
+    <div class="max-w-7xl mx-auto px-4">
+      <p> SpeedSense © 2025  </p>
+      <p class="text-xs mt-1 text-gray-400">5G QoS Prediction Tool</p>
+    </div>
+  </footer>
+
+  <!-- JS Logic -->
+  <script src="static/scripts/main.js"></script>
 </body>
 </html>
