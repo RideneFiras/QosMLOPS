@@ -1,4 +1,4 @@
-# QoS Prediction with MLOps
+# QoS Prediction (throughput)
 
 ![Demo Screenshot](assets/gif.gif)
 
@@ -12,7 +12,14 @@
 
 ## 📡 Project Overview
 
-This project predicts network throughput — a key indicator of Quality of Service (QoS) in 5G networks — using machine learning. It features a full MLOps pipeline with MLflow tracking, Elasticsearch-based evaluation monitoring, SHAP explainability, and GPT-powered human-readable insights. Everything runs on a Dockerized stack with FastAPI and a simple frontend for real-time interaction.
+## 📡 Project Overview
+
+This project predicts network throughput — a key indicator of Quality of Service (QoS) in 5G networks — using machine learning. It features a full MLOps pipeline with **MLflow tracking**, **Elasticsearch-based evaluation dashboards**, **SHAP explainability**, and **GPT-powered QoS insights**. The system runs on a fully Dockerized stack using **FastAPI** and a simple web frontend for real-time use.
+
+---
+
+This work was developed as part of the **Integrated Project** at [Esprit School of Engineering](https://esprit.tn/), under the guidance of professors **Rahma Bouraoui**, **Safa Cherif**, and **Zaineb Labidi**.
+
 
 ---
 

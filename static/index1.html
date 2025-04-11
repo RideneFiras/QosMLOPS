@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SpeedSense</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+            },
+            secondary: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              200: '#ddd6fe',
+              300: '#c4b5fd',
+              400: '#a78bfa',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              700: '#6d28d9',
+              800: '#5b21b6',
+              900: '#4c1d95',
+            }
+          }
+        }
+      }
+    };
+
+    let lastInputData = null;
+    let speedChart = null;
+
+    async function handleFileUpload(event) {
+      const fileInput = document.getElementById('csvFile');
+      const file = fileInput.files[0];
+      if (!file) return;
+      
+      // Show loading state
+      document.getElementById('uploadIcon').classList.add('animate-spin');
+      document.getElementById('uploadText').innerText = 'Processing...';
+      document.getElementById('result').innerText = 'Analyzing network data...';
+      
+      const reader = new FileReader();
+      reader.onload = async function (e) {
+        const csvData = e.target.result;
+        const jsonData = csvToJson(csvData);
+
+        if (jsonData.length === 0) {
+          showNotification('Invalid CSV file or format.', 'error');
+          resetUploadState();
+          return;
+        }
+
+        lastInputData = jsonData[0];
+        console.log("🔁 Saved input for SHAP explanation:", lastInputData);
+
+        try {
+          const response = await sendToFastAPI(jsonData[0]);
+          console.log("Received response:", response);
+          
+          // Update displayed filename
+          document.getElementById('selectedFileName').innerText = file.name;
+          
+          const predictionValue = parseFloat(response.prediction_mbps).toFixed(2);
+          document.getElementById("result").innerHTML = `<span class="text-primary-700 font-bold text-3xl">${predictionValue}</span> <span class="text-gray-600 text-xl">Mbit/s</span>`;
+          
+          document.getElementById("explainBtn").classList.remove("hidden");
+          document.getElementById("explainBtn").classList.add("flex");
+          
+          // Show success notification
+          showNotification('Prediction completed successfully!', 'success');
+          
+          // Update gauge chart
+          updateSpeedChart(predictionValue);
+          
+          fetchStoredPredictions();
+        } catch (error) {
+          showNotification('Failed to get prediction.', 'error');
+        }
+        
+        resetUploadState();
+      };
+
+      reader.readAsText(file);
+    }
+    
+    function resetUploadState() {
+      document.getElementById('uploadIcon').classList.remove('animate-spin');
+      document.getElementById('uploadText').innerText = 'Choose File';
+    }
+    
+    function showNotification(message, type) {
+      const notification = document.getElementById('notification');
+      notification.innerText = message;
+      
+      notification.className = 'fixed top-4 right-4 py-2 px-4 rounded-lg shadow-lg transition-opacity duration-500';
+      
+      if (type === 'error') {
+        notification.classList.add('bg-red-500', 'text-white');
+      } else if (type === 'success') {
+        notification.classList.add('bg-green-500', 'text-white');
+      }
+      
+      notification.classList.remove('opacity-0');
+      
+      setTimeout(() => {
+        notification.classList.add('opacity-0');
+      }, 3000);
+    }
+
+    function csvToJson(csv) {
+      const lines = csv.split("\n").map(line => line.trim()).filter(line => line.length > 0);
+      const headers = lines[0].split(",");
+      const jsonData = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(",");
+        if (values.length !== headers.length) continue;
+
+        let obj = {};
+        for (let j = 0; j < headers.length; j++) {
+          obj[headers[j].trim()] = isNaN(values[j]) ? values[j].trim() : parseFloat(values[j]);
+        }
+        jsonData.push(obj);
+      }
+      return jsonData;
+    }
+
+    async function sendToFastAPI(data) {
+      try {
+        const response = await fetch("/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+
+        if (!response.ok) throw new Error(`Server error: ${response.statusText}`);
+        return await response.json();
+      } catch (error) {
+        console.error("Error:", error);
+        showNotification('Failed to get prediction.', 'error');
+        return { prediction_mbps: "Error" };
+      }
+    }
+
+    function handleExplain() {
+      if (!lastInputData) {
+        showNotification('No input data available for explanation.', 'error');
+        return;
+      }
+
+      localStorage.setItem("lastInputData", JSON.stringify(lastInputData));
+
+      const popup = window.open(
+        "/explain-page",
+        "ExplainPopup",
+        "width=800,height=700,scrollbars=yes,resizable=yes"
+      );
+
+      if (!popup || popup.closed || typeof popup.closed === "undefined") {
+        showNotification('Popup blocked! Please allow popups for this website.', 'error');
+      }
+    }
+
+    async function fetchStoredPredictions() {
+      try {
+        const response = await fetch("/predictions");
+        if (!response.ok) throw new Error("Failed to fetch stored predictions.");
+        const data = await response.json();
+        updatePredictionsTable(data);
+      } catch (error) {
+        console.error("Error fetching predictions:", error);
+      }
+    }
+
+    function updatePredictionsTable(predictions) {
+      const tableBody = document.getElementById("predictions-table-body");
+      tableBody.innerHTML = "";
+
+      if (predictions.length === 0) {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td colspan="2" class="border px-4 py-6 text-center text-gray-500">No predictions available yet</td>
+        `;
+        tableBody.appendChild(row);
+        return;
+      }
+
+      predictions.slice(-10).reverse().forEach(prediction => {
+        const row = document.createElement("tr");
+        const predValue = parseFloat(prediction.prediction_mbps).toFixed(2);
+        
+        // Set row background color based on prediction value
+        let speedClass = '';
+        if (predValue > 40) speedClass = 'bg-green-50';
+        else if (predValue > 20) speedClass = 'bg-yellow-50';
+        else speedClass = 'bg-red-50';
+        
+        row.className = `${speedClass} hover:bg-gray-100 transition-colors duration-150`;
+        
+        row.innerHTML = `
+          <td class="border-b border-gray-200 px-4 py-3">${new Date(prediction.timestamp * 1000).toLocaleString()}</td>
+          <td class="border-b border-gray-200 px-4 py-3 font-medium">${predValue} Mbit/s</td>
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+    
+    function updateSpeedChart(speed) {
+      const ctx = document.getElementById('speedChart').getContext('2d');
+      
+      // Destroy existing chart if it exists
+      if (speedChart) {
+        speedChart.destroy();
+      }
+      
+      // Speed ranges
+      const poorSpeed = 10;
+      const fairSpeed = 30;
+      const goodSpeed = 50;
+      const maxSpeed = 100;
+      
+      // Calculate percentage of the gauge to fill
+      const percentage = Math.min(100, (speed / maxSpeed) * 100);
+      
+      // Determine color based on speed
+      let color = '#EF4444';  // Red for poor
+      if (speed > fairSpeed) color = '#10B981';  // Green for good
+      else if (speed > poorSpeed) color = '#F59E0B';  // Yellow for fair
+      
+      speedChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          datasets: [{
+            data: [percentage, 100 - percentage],
+            backgroundColor: [color, '#E5E7EB'],
+            borderWidth: 0,
+            circumference: 180,
+            rotation: 270
+          }]
+        },
+        options: {
+          responsive: true,
+          cutout: '70%',
+          plugins: {
+            tooltip: {
+              enabled: false
+            },
+            legend: {
+              display: false
+            }
+          },
+          animation: {
+            animateRotate: true,
+            animateScale: true
+          }
+        }
+      });
+      
+      // Update text in center of chart
+      document.getElementById('speedLabel').textContent = 'Network Speed';
+      
+      // Update speed class indicator
+      const speedClass = document.getElementById('speedClass');
+      if (speed > fairSpeed) {
+        speedClass.textContent = 'GOOD';
+        speedClass.className = 'text-green-600 font-bold text-sm';
+      } else if (speed > poorSpeed) {
+        speedClass.textContent = 'FAIR';
+        speedClass.className = 'text-yellow-600 font-bold text-sm';
+      } else {
+        speedClass.textContent = 'POOR';
+        speedClass.className = 'text-red-600 font-bold text-sm';
+      }
+    }
+
+    window.onload = function() {
+      fetchStoredPredictions();
+      
+      // Initialize empty chart
+      updateSpeedChart(0);
+      
+      // Show welcome notification after a delay
+      setTimeout(() => {
+        showNotification('Welcome to QoS Prediction Tool!', 'success');
+      }, 500);
+    };
+  </script>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+  <!-- Notification element -->
+  <div id="notification" class="fixed top-4 right-4 py-2 px-4 rounded-lg shadow-lg opacity-0 transition-opacity duration-500"></div>
+  
+  <!-- Navigation -->
+  <nav class="bg-gradient-to-r from-primary-600 to-primary-800 shadow-md px-6 py-4">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <div class="text-white text-2xl font-bold">SpeedSense</div>
+        <span class="bg-white text-primary-800 text-xs px-2 py-1 rounded-full">Beta</span>
+      </div>
+      <div class="text-white text-sm"></div>
+    </div>
+  </nav>
+  
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="grid md:grid-cols-3 gap-6">
+      <!-- Main prediction card -->
+      <div class="md:col-span-2">
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div class="bg-gradient-to-r from-primary-600 to-primary-800 px-6 py-4">
+            <h2 class="text-xl font-bold text-white flex items-center">
+              <i class="fas fa-broadcast-tower mr-2"></i>
+              QoS Prediction
+            </h2>
+            <p class="text-primary-100 text-sm">Upload network data to predict Quality of Service</p>
+          </div>
+          
+          <div class="p-6">
+            <!-- File upload section -->
+            <div class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
+              <div class="mb-4 text-primary-600">
+                <i class="fas fa-cloud-upload-alt text-4xl"></i>
+              </div>
+              
+              <p class="mb-4 text-sm text-gray-500">Upload a CSV file with network metrics</p>
+              
+              <label class="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors cursor-pointer">
+                <i id="uploadIcon" class="fas fa-file-csv mr-2"></i>
+                <span id="uploadText">Choose File</span>
+                <input type="file" id="csvFile" accept=".csv" onchange="handleFileUpload(event)" class="hidden"/>
+              </label>
+              
+              <p id="selectedFileName" class="mt-2 text-xs text-gray-500">No file selected</p>
+            </div>
+            
+            <!-- Results section -->
+            <div class="mt-8">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-lg font-semibold text-gray-700">Prediction Result</h3>
+                  <p id="result" class="text-gray-500 mt-1">Upload a file to see prediction</p>
+                </div>
+                
+                <button id="explainBtn" onclick="handleExplain()" class="hidden items-center px-4 py-2 bg-secondary-600 text-white rounded-lg hover:bg-secondary-700 transition-colors">
+                  <i class="fas fa-lightbulb mr-2"></i>
+                  Explain Prediction
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Speed gauge card -->
+      <div class="md:col-span-1">
+        <div class="bg-white rounded-xl shadow-lg h-full">
+          <div class="p-6">
+            <h3 class="text-lg font-semibold text-gray-700 mb-4">Network Quality</h3>
+            
+            <div class="flex flex-col items-center">
+              <div class="relative w-48 h-24">
+                <canvas id="speedChart"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                  <span id="speedLabel" class="text-xs text-gray-500">Network Speed</span>
+                  <span id="speedClass" class="font-bold text-sm">N/A</span>
+                </div>
+              </div>
+              
+              <div class="mt-4 grid grid-cols-3 w-full text-xs text-center">
+                <div class="text-red-600">Poor</div>
+                <div class="text-yellow-600">Fair</div>
+                <div class="text-green-600">Good</div>
+              </div>
+            </div>
+            
+            <div class="mt-6">
+              <h4 class="text-sm font-medium text-gray-700 mb-2">Network Quality Factors</h4>
+              <ul class="text-xs text-gray-600 space-y-2">
+                <li class="flex items-center">
+                  <i class="fas fa-signal text-primary-600 mr-2"></i>
+                  <span>RSRP, RSRQ, RSSI, SNR</span>
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-cloud-sun text-primary-600 mr-2"></i>
+                  <span>Weather conditions</span>
+                </li>
+                <li class="flex items-center">
+                  <i class="fas fa-map-marker-alt text-primary-600 mr-2"></i>
+                  <span>Location & traffic density</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- History table -->
+      <div class="md:col-span-3">
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div class="bg-gradient-to-r from-secondary-600 to-secondary-800 px-6 py-4">
+            <h2 class="text-xl font-bold text-white flex items-center">
+              <i class="fas fa-history mr-2"></i>
+              Recent Predictions
+            </h2>
+            <p class="text-secondary-100 text-sm">Last 10 network quality predictions</p>
+          </div>
+          
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead>
+                <tr class="bg-gray-50">
+                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">Timestamp</th>
+                  <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">Prediction (Mbit/s)</th>
+                </tr>
+              </thead>
+              <tbody id="predictions-table-body">
+                <!-- Dynamic content here -->
+                <tr>
+                  <td colspan="2" class="px-4 py-6 text-center text-gray-500">Loading predictions...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Footer -->
+  <footer class="bg-gray-800 text-gray-300 py-4 mt-12 text-center text-sm">
+    <div class="max-w-7xl mx-auto px-4">
+      <p> SpeedSense © 2025 </p>
+      <p class="text-xs mt-1 text-gray-400">5G QoS Prediction Tool</p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -66,6 +66,11 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+@app.get("/index")
+async def serve_frontendd():
+    return FileResponse("static/index1.html")
+
+
 # ✅ Route to serve index.html
 @app.get("/")
 async def serve_frontend():
