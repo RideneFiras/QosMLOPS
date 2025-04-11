@@ -48,7 +48,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 # ✅ Load the trained model
-model = joblib.load("best_rf_model.pkl")
+model = joblib.load("Models/best_rf_model.pkl")
 
 # Initiliaze SHAP
 explainer = shap.Explainer(model)
@@ -64,6 +64,11 @@ app.add_middleware(
 
 # ✅ Mount the static directory to serve HTML, CSS, JS
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/index")
+async def serve_frontendd():
+    return FileResponse("static/index1.html")
 
 
 # ✅ Route to serve index.html
@@ -87,7 +92,7 @@ def get_db():
 
 
 # ✅ Load expected feature order (from training data)
-expected_features = joblib.load("processed_data.pkl")[0].columns.tolist()
+expected_features = joblib.load("Models/processed_data.pkl")[0].columns.tolist()
 print("📌 Expected Feature Names (Order Must Match):")
 print(expected_features)
 

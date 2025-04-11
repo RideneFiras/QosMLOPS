@@ -10,7 +10,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - IS_DOCKER=true  # ✅ Tells app.py to use `db` as host
+      - IS_DOCKER=true  # ✅ Tells your code to use Docker hostnames
       - MLFLOW_TRACKING_URI=http://mlflow:5000
     command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 
@@ -20,14 +20,20 @@ services:
     depends_on:
       - db
       - elasticsearch
-    environment:
-      - MLFLOW_TRACKING_URI=http://0.0.0.0:5000
-      - BACKEND_STORE_URI=sqlite:///mlflow.db
-      - ARTIFACT_ROOT=/mlflow/artifacts
     ports:
       - "5000:5000"
     volumes:
-      - mlflow_data:/mlflow
+      - mlflow_data:/mlflow:rw
+    user: "0:0"
+    environment:
+      - BACKEND_STORE_URI=sqlite:///mlflow.db
+      - ARTIFACT_ROOT=/mlflow/artifacts
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:///mlflow.db
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
 
   db:
     image: postgres:latest
