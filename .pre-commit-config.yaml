@@ -8,4 +8,4 @@ repos:
     rev: 6.0.0
     hooks:
       - id: flake8
-        args: ["--ignore=E501"]  # Ignores long lines
+        args: ["--ignore=E501,W503"]  # Ignores long lines

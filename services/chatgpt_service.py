@@ -47,6 +47,7 @@ Your response must include:
         messages=[{"role": "user", "content": prompt}],
         temperature=0.4,
         max_tokens=600,
+        # "stream": True,
     )
 
     return response.choices[0].message.content

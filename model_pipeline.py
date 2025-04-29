@@ -1,5 +1,8 @@
+# 📦 Updated model_pipeline.py with new data preparation and XGBoost training
+
 import os
 import pandas as pd
+import numpy as np
 import joblib
 import mlflow
 import mlflow.sklearn
@@ -7,9 +10,8 @@ import logging
 import requests
 import time
 from datetime import datetime
-from sklearn.ensemble import RandomForestRegressor
+import xgboost as xgb
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.preprocessing import OrdinalEncoder
 from sklearn.model_selection import train_test_split
 
 # Detect environment
@@ -43,59 +45,140 @@ def send_to_elasticsearch(data):
 
 
 def prepare_data():
-    print("Loading data...")
-    train_df = pd.read_csv("Dataset/Train.csv")
-    test_df = pd.read_csv("Dataset/Test.csv")
+    print("Loading and cleaning data...")
+    df = pd.read_csv("Dataset/Train.csv")
 
-    train_inputs = train_df.drop(columns=["target"])
-    train_targets = train_df["target"]
-    test_inputs = test_df.copy()
+    # --- Your new cleaning logic ---
 
-    dropped_columns = ["device", "id"]
-    train_inputs.drop(columns=dropped_columns, inplace=True)
-    test_inputs.drop(columns=dropped_columns, inplace=True)
-
-    categorical_features = ["area"]
-    oe = OrdinalEncoder()
-    train_inputs[categorical_features] = oe.fit_transform(
-        train_inputs[categorical_features]
+    absence_activite_scell = (
+        df[
+            [
+                "SCell_Cell_Identity",
+                "SCell_RSRP_max",
+                "SCell_RSRQ_max",
+                "SCell_RSSI_max",
+                "SCell_SNR_max",
+                "SCell_Downlink_Num_RBs",
+                "SCell_Downlink_Average_MCS",
+                "SCell_Downlink_bandwidth_MHz",
+            ]
+        ]
+        .isnull()
+        .any(axis=1)
     )
-    test_inputs[categorical_features] = oe.transform(test_inputs[categorical_features])
+    df["SCell_Active"] = np.where(absence_activite_scell, 0, 1)
 
-    train_inputs.fillna(0, inplace=True)
-    test_inputs.fillna(0, inplace=True)
+    mask_active = df["SCell_Active"] == 1
+    for col in [
+        "SCell_RSRP_max",
+        "SCell_RSRQ_max",
+        "SCell_RSSI_max",
+        "SCell_SNR_max",
+        "SCell_Downlink_Num_RBs",
+        "SCell_Downlink_Average_MCS",
+        "SCell_Downlink_bandwidth_MHz",
+    ]:
+        if col in df.columns:
+            df.loc[mask_active, col] = df[col].fillna(df[col].mean())
+
+    mask_inactive = df["SCell_Active"] == 0
+    columns_to_zero = [
+        "SCell_Cell_Identity",
+        "SCell_RSRP_max",
+        "SCell_RSRQ_max",
+        "SCell_RSSI_max",
+        "SCell_SNR_max",
+        "SCell_freq_MHz",
+        "SCell_Downlink_Num_RBs",
+        "SCell_Downlink_Average_MCS",
+        "SCell_Downlink_bandwidth_MHz",
+    ]
+    for col in columns_to_zero:
+        if col in df.columns:
+            df.loc[mask_inactive & df[col].isnull(), col] = 0
+
+    cols_to_drop = [
+        "visibility",
+        "windSpeed",
+        "SCell_freq_MHz",
+        "PCell_freq_MHz",
+        "uvIndex",
+        "COG",
+        "precipIntensity",
+        "Pressure",
+        "id",
+        "PCell_Cell_Identity",
+        "SCell_Cell_Identity",
+    ]
+    df = df.drop(columns=[col for col in cols_to_drop if col in df.columns])
+
+    if "timestamp" in df.columns:
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
+        df["hour"] = df["timestamp"].dt.hour
+        df["day"] = df["timestamp"].dt.day
+        df["weekday"] = df["timestamp"].dt.dayofweek
+        df["is_weekend"] = (df["weekday"] >= 5).astype(int)
+
+    if "PCell_SNR_max" in df.columns and "PCell_RSRP_max" in df.columns:
+        df["RSRP_SNR_ratio"] = df["PCell_SNR_max"] / (df["PCell_RSRP_max"].abs() + 1e-3)
+    if "PCell_SNR_max" in df.columns and "PCell_RSRQ_max" in df.columns:
+        df["RSRQ_SNR_ratio"] = df["PCell_SNR_max"] / (df["PCell_RSRQ_max"].abs() + 1e-3)
+    if (
+        "PCell_Downlink_Num_RBs" in df.columns
+        and "PCell_Downlink_Average_MCS" in df.columns
+    ):
+        df["estimated_utilization"] = (
+            df["PCell_Downlink_Num_RBs"] * df["PCell_Downlink_Average_MCS"]
+        )
+
+    df = df.select_dtypes(include=[np.number])
+    df = df.dropna()
+
+    target_column = "target"
+    X = df.drop(columns=[target_column])
+    y = df[target_column]
 
     X_train, X_test, y_train, y_test = train_test_split(
-        train_inputs, train_targets, test_size=0.2, random_state=0
+        X, y, test_size=0.2, random_state=42
     )
 
-    joblib.dump(
-        (X_train, X_test, y_train, y_test, test_inputs), "Models/processed_data.pkl"
-    )
+    joblib.dump((X_train, X_test, y_train, y_test), "Models/processed_data.pkl")
     print("Data preparation complete. Saved as processed_data.pkl.")
 
 
 def train_model():
     print("Loading processed data...")
-    X_train, X_test, y_train, y_test, _ = joblib.load("Models/processed_data.pkl")
+    X_train, X_test, y_train, y_test = joblib.load("Models/processed_data.pkl")
 
     with mlflow.start_run():
-        print("Training model...")
-        rf = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=0)
-        rf.fit(X_train, y_train)
+        print("Training XGBoost model...")
+        model = xgb.XGBRegressor(
+            objective="reg:squarederror",
+            random_state=42,
+            subsample=0.8,
+            n_estimators=500,
+            min_child_weight=5,
+            max_depth=6,
+            learning_rate=0.05,
+            gamma=0.5,
+            colsample_bytree=0.6,
+            verbosity=0,
+        )
 
-        mlflow.log_param("n_estimators", rf.n_estimators)
-        mlflow.log_param("max_depth", rf.max_depth)
+        model.fit(X_train, y_train)
 
-        joblib.dump(rf, "Models/best_rf_model.pkl")
+        joblib.dump(model, "Models/best_rf_model.pkl")
         print("Model training complete. Saved as best_rf_model.pkl.")
 
-        mlflow.sklearn.log_model(rf, "random_forest_model")
+        mlflow.xgboost.log_model(model, "xgboost_model")
+
+        mlflow.log_param("n_estimators", model.get_params()["n_estimators"])
+        mlflow.log_param("max_depth", model.get_params()["max_depth"])
+        mlflow.log_param("learning_rate", model.get_params()["learning_rate"])
 
         log_data = {
             "event": "training_completed",
-            "n_estimators": rf.n_estimators,
-            "max_depth": rf.max_depth,
+            "model": "xgboost",
             "status": "success",
         }
         send_to_elasticsearch(log_data)
@@ -105,29 +188,34 @@ def train_model():
 
 def evaluate_model():
     print("Loading model and data for evaluation...")
-    X_train, X_test, y_train, y_test, _ = joblib.load("Models/processed_data.pkl")
-    rf = joblib.load("Models/best_rf_model.pkl")
+    X_train, X_test, y_train, y_test = joblib.load("Models/processed_data.pkl")
+    model = joblib.load("Models/best_rf_model.pkl")
 
     print("Validating model...")
-    val_predictions = rf.predict(X_test)
-    rmse = mean_squared_error(y_test, val_predictions) ** 0.5
+    val_predictions = model.predict(X_test)
+
+    rmse = np.sqrt(mean_squared_error(y_test, val_predictions))
     mae = mean_absolute_error(y_test, val_predictions)
     r2 = r2_score(y_test, val_predictions)
-    print(f"Root Mean Squared Error = {rmse / 1e6:.3f} Mbit/s")
-    print(f"MAE: {mae:.2f} Mbps")
-    print(f"R² Score: {r2:.4f}")
 
-    timestamp = int(time.time() * 1000)
+    rmse_mbps = rmse / 1e6
+    mae_mbps = mae / 1e6
+
+    print(f"Root Mean Squared Error = {rmse_mbps:.4f} Mbps")
+    print(f"MAE = {mae_mbps:.4f} Mbps")
+    print(f"R² Score = {r2:.4f}")
 
     with mlflow.start_run():
         mlflow.log_metric("RMSE", rmse)
         mlflow.log_metric("MAE", mae)
         mlflow.log_metric("R2", r2)
 
+    timestamp = int(time.time() * 1000)
+
     log_data = {
         "event": "evaluation_completed",
-        "rmse_mbit_s": rmse / 1e6,
-        "mae_mbit_s": mae / 1e6,
+        "rmse_mbps": rmse_mbps,
+        "mae_mbps": mae_mbps,
         "r2_score": r2,
         "evaluation_timestamp": datetime.utcfromtimestamp(timestamp / 1000).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
@@ -138,19 +226,6 @@ def evaluate_model():
     print("Evaluation metrics logged to MLflow & Elasticsearch.")
 
 
-def save_predictions():
-    print("Loading model for predictions...")
-    _, _, _, _, test_inputs = joblib.load("Models/processed_data.pkl")
-    rf = joblib.load("Models/best_rf_model.pkl")
-
-    print("Generating predictions...")
-    test_predictions = rf.predict(test_inputs)
-
-    predictions_df = pd.DataFrame({"id": test_inputs.index, "target": test_predictions})
-    predictions_df.to_csv("BenchmarkSubmission.csv", index=False)
-    print("Predictions saved as BenchmarkSubmission.csv.")
-
-
 def load_model():
     print("Loading trained model...")
-    return joblib.load("Models/best_rf_model.pkl")
+    return joblib.load("Models/xgboost.pkl")
