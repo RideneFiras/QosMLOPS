@@ -5,14 +5,15 @@ from fastapi.responses import FileResponse
 from sqlalchemy import create_engine, Column, Integer, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
-from pydantic import BaseModel
 import joblib
 import pandas as pd
-import os
 import shap
+import os
+import time
 from services.chatgpt_service import generate_qos_insight
+from services.preprocessing import preprocess_single_row
 
-# ✅ Determine environment and configure PostgreSQL host
+# ✅ Environment detection
 IS_DOCKER = os.getenv("IS_DOCKER", "false").lower() == "true"
 POSTGRES_HOST = "db" if IS_DOCKER else "localhost"
 POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
@@ -24,36 +25,28 @@ print(
     f"Connecting to {POSTGRES_USER}@{POSTGRES_HOST}/{POSTGRES_DB}"
 )
 
-# ✅ Build the DATABASE_URL
+# ✅ Database setup
 DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:5432/{POSTGRES_DB}"
-
-# ✅ Connect to PostgreSQL
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-
-# ✅ Define Prediction Table
 class Prediction(Base):
     __tablename__ = "predictions"
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     timestamp = Column(Integer)
     prediction_mbps = Column(Float)
 
-
-# ✅ Create Database Tables
 Base.metadata.create_all(bind=engine)
 
-# ✅ Initialize FastAPI app
+# ✅ Initialize FastAPI
 app = FastAPI()
 
-# ✅ Load the trained model
-model = joblib.load("Models/best_rf_model.pkl")
-
-# Initiliaze SHAP
+# ✅ Load model & SHAP
+model = joblib.load("Models/best_xgb_model.pkl")
 explainer = shap.Explainer(model)
 
-# ✅ Configure CORS
+# ✅ CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -62,27 +55,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ Mount the static directory to serve HTML, CSS, JS
+# ✅ Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-
-@app.get("/index")
-async def serve_frontendd():
-    return FileResponse("static/index1.html")
-
-
-# ✅ Route to serve index.html
 @app.get("/")
-async def serve_frontend():
+async def serve_index():
     return FileResponse("static/index.html")
 
+@app.get("/index")
+async def serve_alt_index():
+    return FileResponse("static/index1.html")
 
 @app.get("/explain-page")
 async def serve_explain_page():
     return FileResponse("static/explain.html")
 
-
-# ✅ Dependency to Get DB Session
+# ✅ DB session dependency
 def get_db():
     db = SessionLocal()
     try:
@@ -90,111 +78,35 @@ def get_db():
     finally:
         db.close()
 
-
-# ✅ Load expected feature order (from training data)
-expected_features = joblib.load("Models/processed_data.pkl")[0].columns.tolist()
-print("📌 Expected Feature Names (Order Must Match):")
-print(expected_features)
-
-
-# ✅ Define the input schema
-class InputData(BaseModel):
-    timestamp: int
-    PCell_RSRP_max: float
-    PCell_RSRQ_max: float
-    PCell_RSSI_max: float
-    PCell_SNR_max: float
-    PCell_Downlink_Num_RBs: float
-    PCell_Downlink_Average_MCS: float
-    PCell_Downlink_bandwidth_MHz: float
-    PCell_Cell_Identity: float
-    PCell_freq_MHz: float
-    SCell_RSRP_max: float
-    SCell_RSRQ_max: float
-    SCell_RSSI_max: float
-    SCell_SNR_max: float
-    SCell_Downlink_Num_RBs: float
-    SCell_Downlink_Average_MCS: float
-    SCell_Downlink_bandwidth_MHz: float
-    SCell_Cell_Identity: float
-    SCell_freq_MHz: float
-    operator: int
-    Latitude: float
-    Longitude: float
-    Altitude: float
-    speed_kmh: float
-    COG: float
-    precipIntensity: float
-    precipProbability: float
-    temperature: float
-    apparentTemperature: float
-    dewPoint: float
-    humidity: float
-    pressure: float
-    windSpeed: float
-    cloudCover: float
-    uvIndex: float
-    visibility: float
-    Traffic_Jam_Factor: float
-    area: int  # Remember, 'area' was encoded!
-
-
-# ✅ Prediction Endpoint
+# ✅ Predict from raw input (unprocessed row)
 @app.post("/predict")
-async def predict(data: InputData, db: Session = Depends(get_db)):
-    # Convert input data to a dictionary
-    input_dict = data.dict()
-
-    # ✅ Rename "Traffic_Jam_Factor" to "Traffic Jam Factor"
-    input_dict["Traffic Jam Factor"] = input_dict.pop("Traffic_Jam_Factor")
-
-    # ✅ Ensure feature order matches the trained model
-    input_df = pd.DataFrame([input_dict])[expected_features]  # Force column order
-
-    # Log actual input for debugging
-    print("🔹 Received Input for Prediction:")
+async def predict(data: dict, db: Session = Depends(get_db)):
+    input_df = preprocess_single_row(data)
+    print("🔹 Processed input for prediction:")
     print(input_df)
 
-    # Make a prediction
     prediction = model.predict(input_df)
-
-    # ✅ Convert to Megabits per second (Mbit/s)
     prediction_mbps = float(prediction[0]) / 1e6
 
-    # ✅ Save to PostgreSQL Database
     new_prediction = Prediction(
-        timestamp=data.timestamp, prediction_mbps=prediction_mbps
+        timestamp=int(time.time()), prediction_mbps=prediction_mbps
     )
     db.add(new_prediction)
     db.commit()
     db.refresh(new_prediction)
 
-    # Return the prediction result
     return {"prediction_mbps": prediction_mbps}
 
-
-# ✅ Endpoint to Get All Predictions
-@app.get("/predictions")
-async def get_predictions(db: Session = Depends(get_db)):
-    predictions = db.query(Prediction).all()
-    return predictions
-
-
+# ✅ SHAP Explanation
 @app.post("/explain")
-async def explain(data: InputData):
-    input_dict = data.dict()
-    input_dict["Traffic Jam Factor"] = input_dict.pop("Traffic_Jam_Factor")
-    input_df = pd.DataFrame([input_dict])[expected_features]
-
-    # Generate SHAP values
+async def explain(data: dict):
+    input_df = preprocess_single_row(data)
     shap_values = explainer(input_df)
 
-    # Convert SHAP values to Mbps (model predicts in bps)
     explanation_mbps = [val / 1e6 for val in shap_values[0].values.tolist()]
     base_value_mbps = shap_values.base_values[0] / 1e6
     predicted_throughput_mbps = base_value_mbps + sum(explanation_mbps)
 
-    # Return cleaned explanation
     return {
         "throughput_mbps": predicted_throughput_mbps,
         "explanation": explanation_mbps,
@@ -202,7 +114,7 @@ async def explain(data: InputData):
         "base_value": base_value_mbps,
     }
 
-
+# ✅ SHAP → GPT Insight
 @app.post("/chat")
 async def chat_explanation(data: dict):
     insight = generate_qos_insight(
@@ -210,3 +122,8 @@ async def chat_explanation(data: dict):
     )
     print("✅ Insight generated:\n", insight)
     return {"insight": insight}
+
+# ✅ List all predictions
+@app.get("/predictions")
+async def get_predictions(db: Session = Depends(get_db)):
+    return db.query(Prediction).all()
