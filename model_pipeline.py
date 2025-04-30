@@ -142,54 +142,63 @@ def prepare_data():
         X, y, test_size=0.2, random_state=42
     )
 
-    joblib.dump((X_train, X_test, y_train, y_test), "Models/processed_data.pkl")
-    print("Data preparation complete. Saved as processed_data.pkl.")
+    joblib.dump((X_train, X_test, y_train, y_test), "Models/processedx_data.pkl")
+    print("Data preparation complete. Saved as processedx_data.pkl.")
 
 
 def train_model():
     print("Loading processed data...")
-    X_train, X_test, y_train, y_test = joblib.load("Models/processed_data.pkl")
+    X_train, X_test, y_train, y_test = joblib.load("Models/processedx_data.pkl")
 
-    with mlflow.start_run():
-        print("Training XGBoost model...")
-        model = xgb.XGBRegressor(
-            objective="reg:squarederror",
-            random_state=42,
-            subsample=0.8,
-            n_estimators=500,
-            min_child_weight=5,
-            max_depth=6,
-            learning_rate=0.05,
-            gamma=0.5,
-            colsample_bytree=0.6,
-            verbosity=0,
-        )
+    model = xgb.XGBRegressor(
+        objective="reg:squarederror",
+        random_state=42,
+        subsample=0.8,
+        n_estimators=500,
+        min_child_weight=5,
+        max_depth=6,
+        learning_rate=0.05,
+        gamma=0.5,
+        colsample_bytree=0.6,
+        verbosity=0,
+    )
 
-        model.fit(X_train, y_train)
+    print("Training XGBoost model...")
+    model.fit(X_train, y_train)
 
-        joblib.dump(model, "Models/best_rf_model.pkl")
-        print("Model training complete. Saved as best_rf_model.pkl.")
+    joblib.dump(model, "Models/best_xgb_model.pkl")
+    print("✅ Model training complete. Saved as best_xgb_model.pkl.")
 
-        mlflow.xgboost.log_model(model, "xgboost_model")
+    try:
+        with mlflow.start_run():
+            mlflow.xgboost.log_model(model, "xgboost_model")
+            mlflow.log_params({
+                "n_estimators": model.get_params()["n_estimators"],
+                "max_depth": model.get_params()["max_depth"],
+                "learning_rate": model.get_params()["learning_rate"]
+            })
+            print("✅ Model logged to MLflow.")
+    except Exception as e:
+        print(f"⚠️ Skipped MLflow logging: {e}")
 
-        mlflow.log_param("n_estimators", model.get_params()["n_estimators"])
-        mlflow.log_param("max_depth", model.get_params()["max_depth"])
-        mlflow.log_param("learning_rate", model.get_params()["learning_rate"])
+    log_data = {
+        "event": "training_completed",
+        "model": "xgboost",
+        "status": "success",
+    }
 
-        log_data = {
-            "event": "training_completed",
-            "model": "xgboost",
-            "status": "success",
-        }
+    try:
         send_to_elasticsearch(log_data)
+        print("✅ Log sent to Elasticsearch.")
+    except Exception as e:
+        print(f"⚠️ Skipped Elasticsearch logging: {e}")
 
-    print("Model logged to MLflow & Elasticsearch.")
 
 
 def evaluate_model():
     print("Loading model and data for evaluation...")
-    X_train, X_test, y_train, y_test = joblib.load("Models/processed_data.pkl")
-    model = joblib.load("Models/best_rf_model.pkl")
+    X_train, X_test, y_train, y_test = joblib.load("Models/processedx_data.pkl")
+    model = joblib.load("Models/best_xgb_model.pkl")
 
     print("Validating model...")
     val_predictions = model.predict(X_test)

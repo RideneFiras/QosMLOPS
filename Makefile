@@ -1,5 +1,5 @@
 # Define Python executable
-PYTHON = python
+PYTHON = python3
 
 # Data Preparation: Load and process features
 prepare:
@@ -46,12 +46,12 @@ mlflow:
 # Build Docker Compose Services (includes FastAPI)
 docker-build:
 	@echo "Building services defined in docker-compose.yml..."
-	@docker-compose build
+	@docker compose build
 
 # Run Docker Compose Stack
 docker-run:
 	@echo "Running full Docker stack with Docker Compose..."
-	@docker-compose up -d
+	@docker compose up -d
 
 # Push to Docker Hub
 docker-push:
@@ -64,7 +64,7 @@ clean:
 	rm -rf __pycache__ .pytest_cache *.pkl *.log
 
 
-# Run Black (formatting) via pre-commit
+# Run Black (formatting) via pre-commita
 format:
 	@echo "🖌️ Formatting code with Black..."
 	@pre-commit run black --all-files
@@ -91,3 +91,13 @@ docker-down:
 
 services-up:
 	docker compose up -d elasticsearch kibana db mlflow
+
+
+fastapiwin:
+	@echo "Launching PostgreSQL container..."
+	docker compose up -d db
+	@echo "Starting FastAPI..."
+	@xdg-open http://127.0.0.1:8000/ || echo "Manually open http://127.0.0.1:8000/"
+	uvicorn app:app --reload
+
+
