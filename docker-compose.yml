@@ -10,12 +10,12 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - IS_DOCKER=true  # ✅ Tells your code to use Docker hostnames
+      - IS_DOCKER=true
       - MLFLOW_TRACKING_URI=http://mlflow:5000
     command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 
   mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.9.2
+    image: ghcr.io/mlflow/mlflow:v2.9.2  
     container_name: mlflow_server
     depends_on:
       - db
@@ -36,7 +36,7 @@ services:
       --port 5000
 
   db:
-    image: postgres:latest
+    image: postgres:14.10  
     container_name: postgres_db
     restart: always
     environment:
@@ -49,7 +49,7 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.2
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.2  
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
@@ -59,7 +59,7 @@ services:
       - "9300:9300"
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:8.8.2
+    image: docker.elastic.co/kibana/kibana:8.8.2  
     container_name: kibana
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200

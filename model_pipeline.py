@@ -172,11 +172,13 @@ def train_model():
     try:
         with mlflow.start_run():
             mlflow.xgboost.log_model(model, "xgboost_model")
-            mlflow.log_params({
-                "n_estimators": model.get_params()["n_estimators"],
-                "max_depth": model.get_params()["max_depth"],
-                "learning_rate": model.get_params()["learning_rate"]
-            })
+            mlflow.log_params(
+                {
+                    "n_estimators": model.get_params()["n_estimators"],
+                    "max_depth": model.get_params()["max_depth"],
+                    "learning_rate": model.get_params()["learning_rate"],
+                }
+            )
             print("✅ Model logged to MLflow.")
     except Exception as e:
         print(f"⚠️ Skipped MLflow logging: {e}")
@@ -192,7 +194,6 @@ def train_model():
         print("✅ Log sent to Elasticsearch.")
     except Exception as e:
         print(f"⚠️ Skipped Elasticsearch logging: {e}")
-
 
 
 def evaluate_model():

@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, Column, Integer, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 import joblib
-import pandas as pd
+
 import shap
 import os
 import time
@@ -31,11 +31,13 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+
 class Prediction(Base):
     __tablename__ = "predictions"
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     timestamp = Column(Integer)
     prediction_mbps = Column(Float)
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -58,17 +60,21 @@ app.add_middleware(
 # ✅ Static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
 @app.get("/")
 async def serve_index():
     return FileResponse("static/index.html")
+
 
 @app.get("/index")
 async def serve_alt_index():
     return FileResponse("static/index1.html")
 
+
 @app.get("/explain-page")
 async def serve_explain_page():
     return FileResponse("static/explain.html")
+
 
 # ✅ DB session dependency
 def get_db():
@@ -77,6 +83,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
 
 # ✅ Predict from raw input (unprocessed row)
 @app.post("/predict")
@@ -97,6 +104,7 @@ async def predict(data: dict, db: Session = Depends(get_db)):
 
     return {"prediction_mbps": prediction_mbps}
 
+
 # ✅ SHAP Explanation
 @app.post("/explain")
 async def explain(data: dict):
@@ -114,6 +122,7 @@ async def explain(data: dict):
         "base_value": base_value_mbps,
     }
 
+
 # ✅ SHAP → GPT Insight
 @app.post("/chat")
 async def chat_explanation(data: dict):
@@ -122,6 +131,7 @@ async def chat_explanation(data: dict):
     )
     print("✅ Insight generated:\n", insight)
     return {"insight": insight}
+
 
 # ✅ List all predictions
 @app.get("/predictions")

@@ -30,10 +30,6 @@ notebook:
 	@jupyter notebook
 
 fastapi:
-	@echo "Launching database in background..."
-	docker compose up -d db
-	@echo "Starting FastAPI..."
-	@open http://127.0.0.1:8000/
 	uvicorn app:app --reload
 	
     
@@ -95,9 +91,26 @@ services-up:
 
 fastapiwin:
 	@echo "Launching PostgreSQL container..."
-	docker compose up -d db
+	docker compose-up -d db
 	@echo "Starting FastAPI..."
 	@xdg-open http://127.0.0.1:8000/ || echo "Manually open http://127.0.0.1:8000/"
 	uvicorn app:app --reload
 
 
+# 🚨 Monitor system resources (CPU/RAM)
+monitor-alerts:
+	@echo "📢 Starting system resource monitor..."
+	@python3 ciservices/notify_monitor.py
+
+ci:
+	@echo "🚀 Running CI pipeline..."
+	make lint
+	make all
+	make monitor-alerts
+ci-alert:
+	@echo "🚨 Running CI with desktop alert on failure..."
+	@python3 ciservices/ci_wrapper.py
+
+security-audit:
+	@echo "🔐 Running security audit..."
+	@bandit -r . -x qos,venv,__pycache__

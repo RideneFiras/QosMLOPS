@@ -1,11 +1,11 @@
 import pandas as pd
 import numpy as np
 import joblib
-import os
 
 # Load expected features order from saved training set
 processed_data_path = "Models/processedx_data.pkl"
 expected_features = joblib.load(processed_data_path)[0].columns.tolist()
+
 
 def preprocess_single_row(row: dict) -> pd.DataFrame:
     """
@@ -42,8 +42,17 @@ def preprocess_single_row(row: dict) -> pd.DataFrame:
 
     # Drop irrelevant columns
     cols_to_drop = [
-        "visibility", "windSpeed", "SCell_freq_MHz", "PCell_freq_MHz", "uvIndex", "COG",
-        "precipIntensity", "Pressure", "id", "PCell_Cell_Identity", "SCell_Cell_Identity",
+        "visibility",
+        "windSpeed",
+        "SCell_freq_MHz",
+        "PCell_freq_MHz",
+        "uvIndex",
+        "COG",
+        "precipIntensity",
+        "Pressure",
+        "id",
+        "PCell_Cell_Identity",
+        "SCell_Cell_Identity",
     ]
     df.drop(columns=[col for col in cols_to_drop if col in df.columns], inplace=True)
 
@@ -60,7 +69,10 @@ def preprocess_single_row(row: dict) -> pd.DataFrame:
         df["RSRP_SNR_ratio"] = df["PCell_SNR_max"] / (df["PCell_RSRP_max"].abs() + 1e-3)
     if "PCell_SNR_max" in df.columns and "PCell_RSRQ_max" in df.columns:
         df["RSRQ_SNR_ratio"] = df["PCell_SNR_max"] / (df["PCell_RSRQ_max"].abs() + 1e-3)
-    if "PCell_Downlink_Num_RBs" in df.columns and "PCell_Downlink_Average_MCS" in df.columns:
+    if (
+        "PCell_Downlink_Num_RBs" in df.columns
+        and "PCell_Downlink_Average_MCS" in df.columns
+    ):
         df["estimated_utilization"] = (
             df["PCell_Downlink_Num_RBs"] * df["PCell_Downlink_Average_MCS"]
         )
