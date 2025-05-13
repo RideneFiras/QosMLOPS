@@ -1,5 +1,5 @@
 # Define Python executable
-PYTHON = python
+PYTHON = python3
 
 # Data Preparation: Load and process features
 prepare:
@@ -16,13 +16,9 @@ evaluate:
 	@echo "Evaluating saved model..."
 	@$(PYTHON) main.py --evaluate
 
-# Generate predictions
-predict:
-	@echo "Generating predictions..."
-	@$(PYTHON) main.py --predict
 
 # Run the full pipeline (prepare → train → evaluate → save)
-all: prepare train evaluate predict
+all: prepare train evaluate 
 
 # Start Jupyter Notebook
 notebook:
@@ -30,10 +26,6 @@ notebook:
 	@jupyter notebook
 
 fastapi:
-	@echo "Launching database in background..."
-	docker compose up -d db
-	@echo "Starting FastAPI..."
-	@open http://127.0.0.1:8000/
 	uvicorn app:app --reload
 	
     
@@ -46,17 +38,19 @@ mlflow:
 # Build Docker Compose Services (includes FastAPI)
 docker-build:
 	@echo "Building services defined in docker-compose.yml..."
-	@docker-compose build
+	@docker compose build
 
-# Run Docker Compose Stack
-docker-run:
-	@echo "Running full Docker stack with Docker Compose..."
-	@docker-compose up -d
+
 
 # Push to Docker Hub
 docker-push:
-	@echo "Pushing image to Docker Hub..."
-	@docker push firasrid/firas-ridene-4data-mlops:latest
+	@read -p " Enter tag (e.g. v1.0, dev): " tag; \
+	echo " Building image with tag: $$tag"; \
+	docker build -t firasrid/firas-ridene-4data-mlops:$$tag .; \
+	echo " Pushing $$tag and latest to Docker Hub..."; \
+	docker push firasrid/firas-ridene-4data-mlops:$$tag; \
+	
+
 
 # Clean up cached files
 clean:
@@ -64,7 +58,7 @@ clean:
 	rm -rf __pycache__ .pytest_cache *.pkl *.log
 
 
-# Run Black (formatting) via pre-commit
+# Run Black (formatting) via pre-commita
 format:
 	@echo "🖌️ Formatting code with Black..."
 	@pre-commit run black --all-files
@@ -78,6 +72,7 @@ lint:
 check:
 	@echo "🔍 Running Linting & Formatting..."
 	@pre-commit run --all-files
+	
 
 # Start only the PostgreSQL service
 db:
@@ -91,3 +86,35 @@ docker-down:
 
 services-up:
 	docker compose up -d elasticsearch kibana db mlflow
+
+
+start:
+	make services-up
+	uvicorn app:app --reload
+
+
+# 🚨 Monitor system resources (CPU/RAM)
+monitor-alerts:
+	@echo "📢 Starting system resource monitor..."
+	@python3 ciservices/notify_monitor.py
+
+ci:
+	@echo "🚀 Running CI pipeline..."
+	@{ \
+		make monitor-alerts > monitor.log 2>&1 & \
+		MON_PID=$$!; \
+		make check; \
+		make all; \
+		kill $$MON_PID; \
+	}
+
+	
+live_check:
+	./ciservices/ci_watch.sh
+
+security-audit:
+	@echo "🔐 Running security audit..."
+	@bandit -r . -x qos,venv,__pycache__
+
+htop:
+	@htop

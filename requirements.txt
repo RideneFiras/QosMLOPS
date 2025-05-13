@@ -14,3 +14,9 @@ requests==2.31.0
 jupyter==1.1.1
 openai
 python-dotenv==1.0.1
+xgboost
+pre-commit
+psutil==5.9.8
+plyer==2.1.0
+bandit==1.7.6
+entr
