@@ -1,4 +1,4 @@
-# QoS Prediction (throughput)
+# Throughput Prediction in 5G Networks
 
 ![Demo Screenshot](assets/gif.gif)
 
@@ -9,10 +9,14 @@
 [![Made with Python](https://img.shields.io/badge/Made%20with-Python-yellow?logo=python)](https://www.python.org/)
 
 ---
+This repository includes all core functionalities along with a beta dashboard for testing and development purposes.
+For a more lightweight and production-ready frontend, check out the enhanced version here:
 
+[SpeedSense Front](https://github.com/RideneFiras/SpeedSense_Front)
+---
 ## 📡 Project Overview
 
-## 📡 Project Overview
+
 
 This project predicts network throughput — a key indicator of Quality of Service (QoS) in 5G networks — using machine learning. It features a full MLOps pipeline with **MLflow tracking**, **Elasticsearch-based evaluation dashboards**, **SHAP explainability**, and **GPT-powered QoS insights**. The system runs on a fully Dockerized stack using **FastAPI** and a simple web frontend for real-time use.
 
