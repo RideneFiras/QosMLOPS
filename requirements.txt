@@ -19,3 +19,4 @@ pre-commit
 psutil==5.9.8
 plyer==2.1.0
 bandit==1.7.6
+entr

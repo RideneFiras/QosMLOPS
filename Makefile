@@ -16,13 +16,9 @@ evaluate:
 	@echo "Evaluating saved model..."
 	@$(PYTHON) main.py --evaluate
 
-# Generate predictions
-predict:
-	@echo "Generating predictions..."
-	@$(PYTHON) main.py --predict
 
 # Run the full pipeline (prepare → train → evaluate → save)
-all: prepare train evaluate predict
+all: prepare train evaluate 
 
 # Start Jupyter Notebook
 notebook:
@@ -44,15 +40,17 @@ docker-build:
 	@echo "Building services defined in docker-compose.yml..."
 	@docker compose build
 
-# Run Docker Compose Stack
-docker-run:
-	@echo "Running full Docker stack with Docker Compose..."
-	@docker compose up -d
+
 
 # Push to Docker Hub
 docker-push:
-	@echo "Pushing image to Docker Hub..."
-	@docker push firasrid/firas-ridene-4data-mlops:latest
+	@read -p " Enter tag (e.g. v1.0, dev): " tag; \
+	echo " Building image with tag: $$tag"; \
+	docker build -t firasrid/firas-ridene-4data-mlops:$$tag .; \
+	echo " Pushing $$tag and latest to Docker Hub..."; \
+	docker push firasrid/firas-ridene-4data-mlops:$$tag; \
+	
+
 
 # Clean up cached files
 clean:
@@ -74,6 +72,7 @@ lint:
 check:
 	@echo "🔍 Running Linting & Formatting..."
 	@pre-commit run --all-files
+	
 
 # Start only the PostgreSQL service
 db:
@@ -89,11 +88,8 @@ services-up:
 	docker compose up -d elasticsearch kibana db mlflow
 
 
-fastapiwin:
-	@echo "Launching PostgreSQL container..."
-	docker compose-up -d db
-	@echo "Starting FastAPI..."
-	@xdg-open http://127.0.0.1:8000/ || echo "Manually open http://127.0.0.1:8000/"
+start:
+	make services-up
 	uvicorn app:app --reload
 
 
@@ -104,13 +100,21 @@ monitor-alerts:
 
 ci:
 	@echo "🚀 Running CI pipeline..."
-	make lint
-	make all
-	make monitor-alerts
-ci-alert:
-	@echo "🚨 Running CI with desktop alert on failure..."
-	@python3 ciservices/ci_wrapper.py
+	@{ \
+		make monitor-alerts > monitor.log 2>&1 & \
+		MON_PID=$$!; \
+		make check; \
+		make all; \
+		kill $$MON_PID; \
+	}
+
+	
+live_check:
+	./ciservices/ci_watch.sh
 
 security-audit:
 	@echo "🔐 Running security audit..."
 	@bandit -r . -x qos,venv,__pycache__
+
+htop:
+	@htop
